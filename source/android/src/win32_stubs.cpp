@@ -5,6 +5,7 @@
 // win32_stubs.h for why the stubs are shaped this way.
 #include "win32_stubs.h"
 
+#include <algorithm>
 #include <atomic>
 #include <cctype>
 #include <cerrno>
@@ -21,6 +22,7 @@
 #include <unordered_set>
 #include <vector>
 
+#include <dirent.h>
 #include <fcntl.h>
 #include <pthread.h>
 #include <sys/mman.h>
@@ -303,7 +305,13 @@ constexpr std::uint32_t kThreadMagic = 0x54485244u;  // 'THRD'
 
 // Handles are host pointers, but a handle value that did not come from us must
 // never be dereferenced: the kind is looked up in this registry first.
-enum class HandleKind : std::uint32_t { kThread = 1, kFile = 2 };
+enum class HandleKind : std::uint32_t {
+    kThread = 1,
+    kFile = 2,
+    kFileMapping = 3,
+    kFileView = 4,
+    kFind = 5,
+};
 
 std::mutex g_handle_mutex;
 std::unordered_map<std::uint64_t, HandleKind> g_handles;
@@ -338,6 +346,47 @@ struct GuestFile {
     int fd;
 };
 constexpr std::uint32_t kFileMagic = 0x46494C45u;  // 'FILE'
+
+// A section object. Windows maps lazily: CreateFileMapping only describes the
+// mapping, MapViewOfFile is what actually calls mmap.
+struct GuestMapping {
+    std::uint32_t magic;
+    int fd;                 // -1 for a pagefile-backed (anonymous) mapping
+    std::uint64_t size;     // bytes
+    std::uint32_t protect;  // PAGE_*
+};
+constexpr std::uint32_t kMappingMagic = 0x4D415000u;  // 'MAP\0'
+
+// A view is addressed by the guest as the pointer MapViewOfFile returned, so the
+// handle value IS the address; the length and the real mmap base live here.
+struct ViewInfo {
+    std::uint64_t mmap_base;
+    std::size_t length;
+};
+std::mutex g_view_mutex;
+std::unordered_map<std::uint64_t, ViewInfo> g_views;
+
+// An open directory scan (FindFirstFile / FindNextFile).
+struct GuestFind {
+    std::uint32_t magic;
+    DIR *dir;
+    std::string dir_path;
+    std::string pattern;
+    bool wide;  // fills WIN32_FIND_DATAW (0x250) instead of ...A (0x140)
+};
+constexpr std::uint32_t kFindMagic = 0x464E4400u;  // 'FND\0'
+
+// Guest memory writes for the fixed-layout structs Windows defines.
+inline void Put32(std::uint64_t at, std::uint32_t v) {
+    recomp::GuestStore<std::uint32_t>(at, v);
+}
+inline void Put64(std::uint64_t at, std::uint64_t v) {
+    recomp::GuestStore<std::uint64_t>(at, v);
+}
+void GuestWrite(std::uint64_t at, const void *src, std::size_t n) {
+    __atomic_thread_fence(__ATOMIC_RELEASE);
+    std::memcpy(reinterpret_cast<void *>(at), src, n);
+}
 
 void *ThreadMain(void *arg) {
     GuestThread *t = static_cast<GuestThread *>(arg);
@@ -414,24 +463,56 @@ std::uint32_t Impl_CloseHandle(std::uint64_t handle) {
     HandleKind kind;
     if (!TakeHandle(handle, &kind)) return 1;  // not one of ours: pretend success
 
-    if (kind == HandleKind::kThread) {
-        auto *t = reinterpret_cast<GuestThread *>(handle);
-        pthread_join(t->tid, nullptr);
-        munmap(t->stack, t->stack_size);
-        t->magic = 0;
-        delete t;
-        return 1;
-    }
-
-    auto *f = reinterpret_cast<GuestFile *>(handle);
-    if (f != nullptr) {
-        if (::close(f->fd) != 0) {
+    switch (kind) {
+        case HandleKind::kThread: {
+            auto *t = reinterpret_cast<GuestThread *>(handle);
+            pthread_join(t->tid, nullptr);
+            munmap(t->stack, t->stack_size);
+            t->magic = 0;
+            delete t;
+            return 1;
+        }
+        case HandleKind::kFile: {
+            auto *f = reinterpret_cast<GuestFile *>(handle);
+            if (f == nullptr) return 1;
+            const int rc = ::close(f->fd);
             f->magic = 0;
             delete f;
-            return 0;
+            return rc == 0 ? 1u : 0u;
         }
-        f->magic = 0;
-        delete f;
+        case HandleKind::kFileMapping: {
+            // The fd belongs to the GuestFile handle, not to the mapping: the
+            // section object only borrows it. Closing it here would break the
+            // guest's file handle.
+            auto *m = reinterpret_cast<GuestMapping *>(handle);
+            if (m != nullptr) {
+                m->magic = 0;
+                delete m;
+            }
+            return 1;
+        }
+        case HandleKind::kFileView: {
+            ViewInfo info{0, 0};
+            {
+                std::lock_guard<std::mutex> lock(g_view_mutex);
+                auto it = g_views.find(handle);
+                if (it != g_views.end()) {
+                    info = it->second;
+                    g_views.erase(it);
+                }
+            }
+            if (info.length == 0) return 1;
+            return munmap(reinterpret_cast<void *>(info.mmap_base), info.length) == 0 ? 1u : 0u;
+        }
+        case HandleKind::kFind: {
+            auto *scan = reinterpret_cast<GuestFind *>(handle);
+            if (scan != nullptr) {
+                if (scan->dir != nullptr) ::closedir(scan->dir);
+                scan->magic = 0;
+                delete scan;
+            }
+            return 1;
+        }
     }
     return 1;
 }
@@ -648,6 +729,318 @@ std::string Utf16ToUtf8(const std::uint16_t *w) {
         }
     }
     return out;
+}
+
+// ---------------------------------------------------------------------------
+// File mapping: the guest maps the .upak containers instead of reading them.
+//
+// Windows splits this in two calls and POSIX in one, so the split is kept:
+// CreateFileMapping only records the file and the size, MapViewOfFile is what
+// actually maps. The view handle the guest holds is the address mmap returned
+// (plus any page-alignment delta), because that is the pointer it will pass back
+// to UnmapViewOfFile.
+// ---------------------------------------------------------------------------
+std::uint64_t Impl_CreateFileMapping(std::uint64_t file_handle, std::uint32_t protect,
+                                     std::uint32_t size_high, std::uint32_t size_low,
+                                     const char * /*name*/) {
+    int fd = -1;
+    std::uint64_t size = (static_cast<std::uint64_t>(size_high) << 32) | size_low;
+
+    if (file_handle == kInvalidHandle) {
+        // Pagefile-backed mapping: no file at all.
+        if (size == 0) return kInvalidHandle;
+    } else {
+        GuestFile *file = AsFile(file_handle);
+        if (file == nullptr) return kInvalidHandle;
+        fd = file->fd;
+
+        struct stat st {};
+        if (::fstat(fd, &st) != 0) return kInvalidHandle;
+        const std::uint64_t current = static_cast<std::uint64_t>(st.st_size);
+        if (size == 0) size = current;
+
+        // Windows extends the file when a section larger than it is committed;
+        // POSIX would SIGBUS on the first touched page past EOF instead.
+        const bool writable = protect == PAGE_READWRITE || protect == PAGE_EXECUTE_READWRITE ||
+                              protect == PAGE_WRITECOPY || protect == PAGE_EXECUTE_WRITECOPY;
+        if (writable && size > current) {
+            if (::ftruncate64(fd, static_cast<off64_t>(size)) != 0) {
+                Log("[win32] CreateFileMapping: ftruncate to 0x%llx failed: %s",
+                    static_cast<unsigned long long>(size), std::strerror(errno));
+                return kInvalidHandle;
+            }
+        }
+    }
+    if (size == 0) return kInvalidHandle;
+
+    auto *m = new GuestMapping{kMappingMagic, fd, size, protect};
+    const std::uint64_t handle = reinterpret_cast<std::uint64_t>(m);
+    RegisterHandle(handle, HandleKind::kFileMapping);
+    return handle;
+}
+
+std::uint64_t Impl_MapViewOfFile(std::uint64_t mapping_handle, std::uint32_t access,
+                                 std::uint32_t off_high, std::uint32_t off_low,
+                                 std::uint64_t length) {
+    HandleKind kind;
+    if (!HandleKindOf(mapping_handle, &kind) || kind != HandleKind::kFileMapping) return 0;
+    auto *m = reinterpret_cast<GuestMapping *>(mapping_handle);
+    if (m == nullptr || m->magic != kMappingMagic) return 0;
+
+    const std::uint64_t offset = (static_cast<std::uint64_t>(off_high) << 32) | off_low;
+    if (offset >= m->size) return 0;
+
+    std::size_t len = length != 0 ? static_cast<std::size_t>(length)
+                                  : static_cast<std::size_t>(m->size - offset);
+    if (offset + len > m->size) len = static_cast<std::size_t>(m->size - offset);
+    if (len == 0) return 0;
+
+    // FILE_MAP_ALL_ACCESS is a *combination* that contains FILE_MAP_READ, so it
+    // must not be tested as a bit: only WRITE and COPY imply a writable view.
+    const bool writable = (access & (FILE_MAP_WRITE | FILE_MAP_COPY)) != 0;
+    const int prot = writable ? (PROT_READ | PROT_WRITE) : PROT_READ;
+    // FILE_MAP_COPY is copy-on-write: MAP_PRIVATE, everything else shared.
+    const int flags = (access & FILE_MAP_COPY) ? MAP_PRIVATE : MAP_SHARED;
+
+    // Windows hands out 64 KiB-aligned offsets, which are page-aligned, but stay
+    // correct if one is not: map from the page and bias the returned pointer.
+    const std::uint64_t aligned = offset & ~static_cast<std::uint64_t>(kPage - 1);
+    const std::size_t delta = static_cast<std::size_t>(offset - aligned);
+    const std::size_t map_len = len + delta;
+
+    void *base = nullptr;
+    if (m->fd < 0) {
+        base = mmap(nullptr, map_len, prot, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    } else {
+        base = mmap(nullptr, map_len, prot, flags, m->fd, static_cast<off_t>(aligned));
+    }
+    if (base == MAP_FAILED) {
+        Log("[win32] MapViewOfFile(0x%llx, len 0x%zx, off 0x%llx) failed: %s",
+            static_cast<unsigned long long>(m->size), map_len,
+            static_cast<unsigned long long>(offset), std::strerror(errno));
+        return 0;
+    }
+
+    const std::uint64_t guest_base = reinterpret_cast<std::uint64_t>(base) + delta;
+    {
+        std::lock_guard<std::mutex> lock(g_view_mutex);
+        g_views[guest_base] = ViewInfo{reinterpret_cast<std::uint64_t>(base), map_len};
+    }
+    RegisterHandle(guest_base, HandleKind::kFileView);
+    return guest_base;
+}
+
+std::uint32_t Impl_UnmapViewOfFile(std::uint64_t base) {
+    HandleKind kind;
+    if (!TakeHandle(base, &kind) || kind != HandleKind::kFileView) return 0;
+    ViewInfo info{0, 0};
+    {
+        std::lock_guard<std::mutex> lock(g_view_mutex);
+        auto it = g_views.find(base);
+        if (it == g_views.end()) return 0;
+        info = it->second;
+        g_views.erase(it);
+    }
+    if (info.length == 0) return 0;
+    return munmap(reinterpret_cast<void *>(info.mmap_base), info.length) == 0 ? 1u : 0u;
+}
+
+// ---------------------------------------------------------------------------
+// Attributes and directory enumeration
+// ---------------------------------------------------------------------------
+std::uint32_t AttributesFor(const struct stat &st) {
+    if (S_ISDIR(st.st_mode)) return FILE_ATTRIBUTE_DIRECTORY;
+    std::uint32_t attrs = FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_ARCHIVE;
+    if ((st.st_mode & S_IWUSR) == 0) attrs |= FILE_ATTRIBUTE_READONLY;
+    return attrs;
+}
+
+// FILETIME counts 100 ns intervals since 1601-01-01.
+std::uint64_t UnixToFileTime(std::int64_t seconds) {
+    return static_cast<std::uint64_t>(seconds + 11644473600LL) * 10000000ull;
+}
+
+bool StatGuestPath(const char *path, struct stat *st) {
+    const std::string p = ResolveGuestPath(path);
+    if (::stat(p.c_str(), st) == 0) return true;
+    const std::string lower = LowerAscii(p);
+    return lower != p && ::stat(lower.c_str(), st) == 0;
+}
+
+std::uint32_t Impl_GetFileAttributes(const char *path) {
+    if (path == nullptr) return kInvalidFileAttributes;
+    struct stat st {};
+    if (!StatGuestPath(path, &st)) return kInvalidFileAttributes;
+    return AttributesFor(st);
+}
+
+std::uint32_t Impl_GetFileAttributesEx(const char *path, std::uint32_t /*level*/,
+                                       std::uint64_t out) {
+    if (path == nullptr) return 0;
+    struct stat st {};
+    if (!StatGuestPath(path, &st)) return 0;
+    if (out == 0) return 1;
+
+    const std::uint32_t attrs = AttributesFor(st);
+    const std::uint64_t file_time = UnixToFileTime(st.st_mtime);
+    Put32(out + 0x00, attrs);
+    Put64(out + 0x04, file_time);  // creation
+    Put64(out + 0x0C, file_time);  // last access
+    Put64(out + 0x14, file_time);  // last write
+    Put32(out + 0x1C, 0);          // volume serial
+    Put32(out + 0x20, static_cast<std::uint32_t>(static_cast<std::uint64_t>(st.st_size) >> 32));
+    Put32(out + 0x24, static_cast<std::uint32_t>(static_cast<std::uint64_t>(st.st_size)));
+    Put32(out + 0x28, static_cast<std::uint32_t>(st.st_nlink));
+    Put32(out + 0x2C, 0);  // file index high
+    Put32(out + 0x30, static_cast<std::uint32_t>(st.st_ino));
+    return 1;
+}
+
+// Windows wildcards: '*' any run, '?' one character, case-insensitive.
+bool WildcardMatch(const std::string &pattern, const std::string &text) {
+    std::size_t pi = 0, ti = 0;
+    std::size_t star = std::string::npos, mark = 0;
+    while (ti < text.size()) {
+        if (pi < pattern.size() && (pattern[pi] == '?' || std::tolower(
+                static_cast<unsigned char>(pattern[pi])) ==
+                std::tolower(static_cast<unsigned char>(text[ti])))) {
+            ++pi;
+            ++ti;
+        } else if (pi < pattern.size() && pattern[pi] == '*') {
+            star = pi++;
+            mark = ti;
+        } else if (star != std::string::npos) {
+            pi = star + 1;
+            ti = ++mark;
+        } else {
+            return false;
+        }
+    }
+    while (pi < pattern.size() && pattern[pi] == '*') ++pi;
+    return pi == pattern.size();
+}
+
+void FillFindData(std::uint64_t out, const std::string &name, const struct stat &st,
+                  bool wide) {
+    const std::size_t size = wide ? kFindDataSizeW : kFindDataSize;
+    std::vector<unsigned char> buf(size, 0);
+
+    const std::uint32_t attrs = AttributesFor(st);
+    const std::uint64_t file_time = UnixToFileTime(st.st_mtime);
+    const std::uint32_t size_high =
+        static_cast<std::uint32_t>(static_cast<std::uint64_t>(st.st_size) >> 32);
+    const std::uint32_t size_low =
+        static_cast<std::uint32_t>(static_cast<std::uint64_t>(st.st_size));
+    std::memcpy(buf.data() + 0x00, &attrs, 4);
+    std::memcpy(buf.data() + 0x04, &file_time, 8);
+    std::memcpy(buf.data() + 0x0C, &file_time, 8);
+    std::memcpy(buf.data() + 0x14, &file_time, 8);
+    std::memcpy(buf.data() + 0x1C, &size_high, 4);
+    std::memcpy(buf.data() + 0x20, &size_low, 4);
+
+    if (wide) {
+        // cFileName is WCHAR[260] here, so the field is twice as wide.
+        std::uint16_t name_w[kMaxPath];
+        const std::size_t n = std::min(name.size(), kMaxPath - 1);
+        for (std::size_t i = 0; i < n; ++i) {
+            name_w[i] = static_cast<std::uint16_t>(
+                static_cast<unsigned char>(name[i]));  // ASCII asset paths
+        }
+        name_w[n] = 0;
+        std::memcpy(buf.data() + 0x2C, name_w, sizeof(std::uint16_t) * (n + 1));
+    } else {
+        const std::size_t n = std::min(name.size(), kMaxPath - 1);
+        std::memcpy(buf.data() + 0x2C, name.data(), n);
+        buf[0x2C + n] = 0;
+    }
+
+    GuestWrite(out, buf.data(), size);
+}
+
+bool NextMatch(GuestFind *scan, std::uint64_t out) {
+    if (scan == nullptr || scan->dir == nullptr) return false;
+    struct dirent *entry = nullptr;
+    while ((entry = ::readdir(scan->dir)) != nullptr) {
+        const std::string name = entry->d_name;
+        if (name == "." || name == "..") continue;  // Windows does not report these
+        if (!WildcardMatch(scan->pattern, name)) continue;
+        struct stat st {};
+        const std::string full = scan->dir_path + "/" + name;
+        if (::stat(full.c_str(), &st) != 0) continue;
+        FillFindData(out, name, st, scan->wide);
+        return true;
+    }
+    return false;
+}
+
+std::uint64_t Impl_FindFirstFile(const char *pattern, std::uint64_t out, bool wide) {
+    if (pattern == nullptr || out == 0) return kInvalidHandle;
+    const std::string full = ResolveGuestPath(pattern);
+
+    std::string dir_path;
+    std::string pat;
+    const std::size_t slash = full.find_last_of('/');
+    if (slash == std::string::npos) {
+        dir_path = ".";
+        pat = full;
+    } else {
+        dir_path = full.substr(0, slash);
+        if (dir_path.empty()) dir_path = "/";
+        pat = full.substr(slash + 1);
+    }
+    if (pat.empty()) pat = "*";
+    if (pat == "*.*") pat = "*";
+
+    DIR *dir = ::opendir(dir_path.c_str());
+    if (dir == nullptr) {
+        Log("[win32] FindFirstFile: opendir(%s) failed: %s", dir_path.c_str(),
+            std::strerror(errno));
+        return kInvalidHandle;
+    }
+
+    auto *scan = new GuestFind{kFindMagic, dir, dir_path, pat, wide};
+    if (!NextMatch(scan, out)) {
+        ::closedir(dir);
+        delete scan;
+        return kInvalidHandle;  // no match is an error in Windows, not an empty list
+    }
+    const std::uint64_t handle = reinterpret_cast<std::uint64_t>(scan);
+    RegisterHandle(handle, HandleKind::kFind);
+    return handle;
+}
+
+std::uint32_t Impl_FindNextFile(std::uint64_t handle, std::uint64_t out) {
+    HandleKind kind;
+    if (!HandleKindOf(handle, &kind) || kind != HandleKind::kFind) return 0;
+    auto *scan = reinterpret_cast<GuestFind *>(handle);
+    if (scan == nullptr || scan->magic != kFindMagic) return 0;
+    return NextMatch(scan, out) ? 1u : 0u;
+}
+
+std::uint32_t Impl_FindClose(std::uint64_t handle) {
+    HandleKind kind;
+    if (!TakeHandle(handle, &kind) || kind != HandleKind::kFind) return 0;
+    auto *scan = reinterpret_cast<GuestFind *>(handle);
+    if (scan != nullptr) {
+        if (scan->dir != nullptr) ::closedir(scan->dir);
+        scan->magic = 0;
+        delete scan;
+    }
+    return 1;
+}
+
+std::uint32_t Impl_DeleteFile(const char *path) {
+    if (path == nullptr) return 0;
+    const std::string p = ResolveGuestPath(path);
+    return ::unlink(p.c_str()) == 0 ? 1u : 0u;
+}
+
+std::uint32_t Impl_SetEndOfFile(std::uint64_t handle) {
+    GuestFile *f = AsFile(handle);
+    if (f == nullptr) return 0;
+    const off64_t pos = ::lseek64(f->fd, 0, SEEK_CUR);
+    if (pos < 0) return 0;
+    return ::ftruncate64(f->fd, pos) == 0 ? 1u : 0u;
 }
 
 // ---------------------------------------------------------------------------
@@ -885,6 +1278,60 @@ void Stub_SetFilePointerEx(CpuContext *c) {
 void Stub_GetFileSize(CpuContext *c) { SetRet(c, Impl_GetFileSize(Arg0(c), Arg1(c))); }
 void Stub_GetFileSizeEx(CpuContext *c) { SetRet(c, Impl_GetFileSizeEx(Arg0(c), Arg1(c))); }
 
+// ---- file mapping, attributes, directory enumeration ----
+void Stub_CreateFileMappingA(CpuContext *c) {
+    SetRet(c, Impl_CreateFileMapping(Arg0(c), static_cast<std::uint32_t>(Arg2(c)),
+                                     static_cast<std::uint32_t>(Arg3(c)),
+                                     static_cast<std::uint32_t>(Arg4(c)),
+                                     reinterpret_cast<const char *>(Arg5(c))));
+}
+void Stub_CreateFileMappingW(CpuContext *c) {
+    // lpName is ignored: this layer does not share named mappings across processes.
+    SetRet(c, Impl_CreateFileMapping(Arg0(c), static_cast<std::uint32_t>(Arg2(c)),
+                                     static_cast<std::uint32_t>(Arg3(c)),
+                                     static_cast<std::uint32_t>(Arg4(c)), nullptr));
+}
+void Stub_MapViewOfFile(CpuContext *c) {
+    SetRet(c, Impl_MapViewOfFile(Arg0(c), static_cast<std::uint32_t>(Arg1(c)),
+                                 static_cast<std::uint32_t>(Arg2(c)),
+                                 static_cast<std::uint32_t>(Arg3(c)), Arg4(c)));
+}
+void Stub_UnmapViewOfFile(CpuContext *c) { SetRet(c, Impl_UnmapViewOfFile(Arg0(c))); }
+void Stub_GetFileAttributesA(CpuContext *c) {
+    SetRet(c, Impl_GetFileAttributes(reinterpret_cast<const char *>(Arg0(c))));
+}
+void Stub_GetFileAttributesW(CpuContext *c) {
+    const std::string path = Utf16ToUtf8(reinterpret_cast<const std::uint16_t *>(Arg0(c)));
+    SetRet(c, Impl_GetFileAttributes(path.c_str()));
+}
+void Stub_GetFileAttributesExA(CpuContext *c) {
+    SetRet(c, Impl_GetFileAttributesEx(reinterpret_cast<const char *>(Arg0(c)),
+                                       static_cast<std::uint32_t>(Arg1(c)), Arg2(c)));
+}
+void Stub_GetFileAttributesExW(CpuContext *c) {
+    const std::string path = Utf16ToUtf8(reinterpret_cast<const std::uint16_t *>(Arg0(c)));
+    SetRet(c, Impl_GetFileAttributesEx(path.c_str(), static_cast<std::uint32_t>(Arg1(c)),
+                                       Arg2(c)));
+}
+void Stub_FindFirstFileA(CpuContext *c) {
+    SetRet(c, Impl_FindFirstFile(reinterpret_cast<const char *>(Arg0(c)), Arg1(c), false));
+}
+void Stub_FindFirstFileW(CpuContext *c) {
+    const std::string path = Utf16ToUtf8(reinterpret_cast<const std::uint16_t *>(Arg0(c)));
+    SetRet(c, Impl_FindFirstFile(path.c_str(), Arg1(c), true));
+}
+void Stub_FindNextFileA(CpuContext *c) { SetRet(c, Impl_FindNextFile(Arg0(c), Arg1(c))); }
+void Stub_FindNextFileW(CpuContext *c) { SetRet(c, Impl_FindNextFile(Arg0(c), Arg1(c))); }
+void Stub_FindClose(CpuContext *c) { SetRet(c, Impl_FindClose(Arg0(c))); }
+void Stub_DeleteFileA(CpuContext *c) {
+    SetRet(c, Impl_DeleteFile(reinterpret_cast<const char *>(Arg0(c))));
+}
+void Stub_DeleteFileW(CpuContext *c) {
+    const std::string path = Utf16ToUtf8(reinterpret_cast<const std::uint16_t *>(Arg0(c)));
+    SetRet(c, Impl_DeleteFile(path.c_str()));
+}
+void Stub_SetEndOfFile(CpuContext *c) { SetRet(c, Impl_SetEndOfFile(Arg0(c))); }
+
 }  // namespace
 
 // ---------------------------------------------------------------------------
@@ -980,6 +1427,22 @@ void RegisterBuiltins() {
             {"kernel32.dll", "SetFilePointerEx", Stub_SetFilePointerEx},
             {"kernel32.dll", "GetFileSize", Stub_GetFileSize},
             {"kernel32.dll", "GetFileSizeEx", Stub_GetFileSizeEx},
+            {"kernel32.dll", "CreateFileMappingA", Stub_CreateFileMappingA},
+            {"kernel32.dll", "CreateFileMappingW", Stub_CreateFileMappingW},
+            {"kernel32.dll", "MapViewOfFile", Stub_MapViewOfFile},
+            {"kernel32.dll", "UnmapViewOfFile", Stub_UnmapViewOfFile},
+            {"kernel32.dll", "GetFileAttributesA", Stub_GetFileAttributesA},
+            {"kernel32.dll", "GetFileAttributesW", Stub_GetFileAttributesW},
+            {"kernel32.dll", "GetFileAttributesExA", Stub_GetFileAttributesExA},
+            {"kernel32.dll", "GetFileAttributesExW", Stub_GetFileAttributesExW},
+            {"kernel32.dll", "FindFirstFileA", Stub_FindFirstFileA},
+            {"kernel32.dll", "FindFirstFileW", Stub_FindFirstFileW},
+            {"kernel32.dll", "FindNextFileA", Stub_FindNextFileA},
+            {"kernel32.dll", "FindNextFileW", Stub_FindNextFileW},
+            {"kernel32.dll", "FindClose", Stub_FindClose},
+            {"kernel32.dll", "DeleteFileA", Stub_DeleteFileA},
+            {"kernel32.dll", "DeleteFileW", Stub_DeleteFileW},
+            {"kernel32.dll", "SetEndOfFile", Stub_SetEndOfFile},
         };
         for (const Entry &e : kEntries) {
             AddStub(e.module, e.name, e.fn);
@@ -1036,22 +1499,53 @@ void Shutdown() {
     {
         std::lock_guard<std::mutex> lock(g_handle_mutex);
         for (auto &kv : g_handles) {
-            if (kv.second == HandleKind::kThread) {
-                auto *t = reinterpret_cast<GuestThread *>(kv.first);
-                pthread_join(t->tid, nullptr);
-                munmap(t->stack, t->stack_size);
-                t->magic = 0;
-                delete t;
-            } else {
-                auto *f = reinterpret_cast<GuestFile *>(kv.first);
-                if (f != nullptr) {
-                    ::close(f->fd);
-                    f->magic = 0;
-                    delete f;
+            switch (kv.second) {
+                case HandleKind::kThread: {
+                    auto *t = reinterpret_cast<GuestThread *>(kv.first);
+                    pthread_join(t->tid, nullptr);
+                    munmap(t->stack, t->stack_size);
+                    t->magic = 0;
+                    delete t;
+                    break;
                 }
+                case HandleKind::kFile: {
+                    auto *f = reinterpret_cast<GuestFile *>(kv.first);
+                    if (f != nullptr) {
+                        ::close(f->fd);
+                        f->magic = 0;
+                        delete f;
+                    }
+                    break;
+                }
+                case HandleKind::kFileMapping: {
+                    auto *m = reinterpret_cast<GuestMapping *>(kv.first);
+                    if (m != nullptr) {
+                        m->magic = 0;
+                        delete m;
+                    }
+                    break;
+                }
+                case HandleKind::kFind: {
+                    auto *scan = reinterpret_cast<GuestFind *>(kv.first);
+                    if (scan != nullptr) {
+                        if (scan->dir != nullptr) ::closedir(scan->dir);
+                        scan->magic = 0;
+                        delete scan;
+                    }
+                    break;
+                }
+                case HandleKind::kFileView:
+                    break;  // handled from g_views below
             }
         }
         g_handles.clear();
+    }
+    {
+        std::lock_guard<std::mutex> lock(g_view_mutex);
+        for (auto &kv : g_views) {
+            munmap(reinterpret_cast<void *>(kv.second.mmap_base), kv.second.length);
+        }
+        g_views.clear();
     }
     {
         std::lock_guard<std::mutex> lock(g_tls_mutex);

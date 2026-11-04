@@ -9,6 +9,7 @@
 //   ./selftest
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 #include <fcntl.h>
@@ -70,6 +71,35 @@ static void SetStackArg(int index, std::uint64_t value) {
     // Win64: arg 4 at [rsp+0x28], arg 5 at [rsp+0x30].
     auto *slot = reinterpret_cast<std::uint64_t *>(g_ctx.r[recomp::RSP] + 0x28 + index * 8);
     *slot = value;
+}
+
+// CreateFileA(path, access, share, security, disposition, attrs, template)
+static std::uint64_t OpenFile(const char *name, std::uint32_t access,
+                              std::uint32_t disposition) {
+    Reset(reinterpret_cast<std::uint64_t>(name), access, 0, 0);
+    SetStackArg(0, disposition);
+    SetStackArg(1, 0);
+    SetStackArg(2, 0);
+    Call("kernel32.dll", "CreateFileA");
+    return Ret();
+}
+
+// CreateFileMappingA(hFile, attrs, protect, sizeHigh, sizeLow, name)
+static std::uint64_t MapFile(std::uint64_t file, std::uint32_t protect, std::uint32_t size_low) {
+    Reset(file, 0, protect, 0);
+    SetStackArg(0, size_low);
+    SetStackArg(1, 0);
+    Call("kernel32.dll", "CreateFileMappingA");
+    return Ret();
+}
+
+// MapViewOfFile(hMap, access, offHigh, offLow, bytes)
+static std::uint64_t MapView(std::uint64_t map, std::uint32_t access, std::uint32_t off_low,
+                             std::uint64_t bytes) {
+    Reset(map, access, 0, off_low);
+    SetStackArg(0, bytes);
+    Call("kernel32.dll", "MapViewOfFile");
+    return Ret();
 }
 
 int main() {
@@ -200,6 +230,15 @@ int main() {
 
     std::printf("\n== file I/O and VFS ==\n");
 
+    // Work on a real filesystem: WSL's /mnt/c is v9fs, which refuses mmap, and
+    // that is an environment limit, not something the stubs can work around.
+    char tmp_dir[] = "/tmp/d2selftestXXXXXX";
+    const char *work_dir = ::mkdtemp(tmp_dir);
+    if (work_dir != nullptr) {
+        ::chdir(work_dir);
+        std::printf("      (working in %s)\n", work_dir);
+    }
+
     constexpr const char *kSub = "d2_test_sub";
     constexpr const char *kRel = "d2_test_sub/d2_selftest.bin";
     ::mkdir(kSub, 0755);
@@ -308,9 +347,174 @@ int main() {
         Call(K32, "CloseHandle");
     }
 
+    std::printf("\n== file attributes ==\n");
+
+    Reset(reinterpret_cast<std::uint64_t>("d2_test_sub\\d2_selftest.bin"));
+    CHECK(Call(K32, "GetFileAttributesA"), "GetFileAttributesA dispatched");
+    const std::uint32_t file_attrs = static_cast<std::uint32_t>(Ret());
+    CHECK(file_attrs != win32::kInvalidFileAttributes, "a file has attributes");
+    CHECK((file_attrs & win32::FILE_ATTRIBUTE_DIRECTORY) == 0,
+          "a file does not report FILE_ATTRIBUTE_DIRECTORY");
+
+    Reset(reinterpret_cast<std::uint64_t>("d2_test_sub"));
+    Call(K32, "GetFileAttributesA");
+    CHECK((static_cast<std::uint32_t>(Ret()) & win32::FILE_ATTRIBUTE_DIRECTORY) != 0,
+          "a directory reports FILE_ATTRIBUTE_DIRECTORY");
+
+    Reset(reinterpret_cast<std::uint64_t>("d2_test_sub\\nope.bin"));
+    Call(K32, "GetFileAttributesA");
+    CHECK(static_cast<std::uint32_t>(Ret()) == win32::kInvalidFileAttributes,
+          "a missing path returns INVALID_FILE_ATTRIBUTES");
+
+    alignas(8) unsigned char finfo[0x34] = {};
+    Reset(reinterpret_cast<std::uint64_t>("d2_test_sub\\d2_selftest.bin"), 0,
+          reinterpret_cast<std::uint64_t>(finfo));
+    CHECK(Call(K32, "GetFileAttributesExA") && Ret() == 1, "GetFileAttributesExA");
+    {
+        std::uint32_t size_hi = 0, size_lo = 0;
+        std::memcpy(&size_hi, finfo + 0x20, 4);
+        std::memcpy(&size_lo, finfo + 0x24, 4);
+        CHECK(((static_cast<std::uint64_t>(size_hi) << 32) | size_lo) == 4096,
+              "GetFileAttributesExA reports the 4096-byte size");
+    }
+
+    std::printf("\n== directory enumeration ==\n");
+    alignas(8) unsigned char find_data[0x140] = {};
+    Reset(reinterpret_cast<std::uint64_t>("d2_test_sub\\*"),
+          reinterpret_cast<std::uint64_t>(find_data));
+    CHECK(Call(K32, "FindFirstFileA"), "FindFirstFileA dispatched");
+    const std::uint64_t find_handle = Ret();
+    CHECK(find_handle != win32::kInvalidHandle, "FindFirstFileA finds the entries");
+
+    int entries = 0;
+    bool saw_selftest = false;
+    if (find_handle != win32::kInvalidHandle) {
+        for (;;) {
+            const char *found = reinterpret_cast<const char *>(find_data + 0x2C);
+            ++entries;
+            if (std::strcmp(found, "d2_selftest.bin") == 0) saw_selftest = true;
+            Reset(find_handle, reinterpret_cast<std::uint64_t>(find_data));
+            Call(K32, "FindNextFileA");
+            if (Ret() == 0) break;
+        }
+        Reset(find_handle);
+        CHECK(Call(K32, "FindClose") && Ret() == 1, "FindClose");
+    }
+    CHECK(entries == 2, "the scan reports both files present");
+    CHECK(saw_selftest, "the scan saw d2_selftest.bin");
+
+    Reset(reinterpret_cast<std::uint64_t>("d2_test_sub\\*.nothing"),
+          reinterpret_cast<std::uint64_t>(find_data));
+    Call(K32, "FindFirstFileA");
+    CHECK(Ret() == win32::kInvalidHandle, "no match returns INVALID_HANDLE_VALUE");
+
+    std::printf("\n== file mapping ==\n");
+    const std::uint64_t map_file =
+        OpenFile("d2_test_sub\\d2_selftest.bin", win32::GENERIC_READ, win32::OPEN_EXISTING);
+    CHECK(map_file != win32::kInvalidHandle, "file opened for mapping");
+
+    const std::uint64_t mapping = MapFile(map_file, win32::PAGE_READONLY, 0);
+    CHECK(mapping != 0 && mapping != win32::kInvalidHandle, "CreateFileMappingA returns a handle");
+
+    const std::uint64_t view = MapView(mapping, win32::FILE_MAP_READ, 0, 0);
+    CHECK(view != 0, "MapViewOfFile returns a pointer");
+    if (view != 0) {
+        const auto *bytes = reinterpret_cast<const unsigned char *>(view);
+        CHECK(bytes[0] == 0 && bytes[15] == 15 && bytes[4095] == 255,
+              "the view exposes all 4096 bytes of the file");
+    }
+
+    const std::uint64_t offset_view = MapView(mapping, win32::FILE_MAP_READ, 1000, 8);
+    CHECK(offset_view != 0 &&
+              reinterpret_cast<const unsigned char *>(offset_view)[0] == 232,
+          "a view at offset 1000 starts on byte 232");
+    if (offset_view != 0) {
+        Reset(offset_view);
+        CHECK(Call(K32, "UnmapViewOfFile") && Ret() == 1, "UnmapViewOfFile (offset view)");
+    }
+
+    if (view != 0) {
+        Reset(view);
+        CHECK(Call(K32, "UnmapViewOfFile") && Ret() == 1, "UnmapViewOfFile");
+    }
+    Reset(mapping);
+    CHECK(Call(K32, "CloseHandle") && Ret() == 1, "CloseHandle on a mapping");
+    Reset(map_file);
+    Call(K32, "CloseHandle");
+
+    // A MAP_SHARED writable view must reach the file.
+    const std::uint64_t write_file =
+        OpenFile("d2_test_sub\\d2_map.bin", win32::GENERIC_READ | win32::GENERIC_WRITE,
+                 win32::CREATE_ALWAYS);
+    CHECK(write_file != win32::kInvalidHandle, "file created for a writable mapping");
+    const std::uint64_t write_map = MapFile(write_file, win32::PAGE_READWRITE, 64);
+    CHECK(write_map != 0 && write_map != win32::kInvalidHandle,
+          "CreateFileMappingA extends the file to 64 bytes");
+    const std::uint64_t write_view = MapView(write_map, win32::FILE_MAP_WRITE, 0, 64);
+    CHECK(write_view != 0, "writable view created");
+    if (write_view != 0) {
+        reinterpret_cast<unsigned char *>(write_view)[4] = 0x5A;
+        Reset(write_view);
+        Call(K32, "UnmapViewOfFile");
+    }
+    Reset(write_map);
+    Call(K32, "CloseHandle");
+    Reset(write_file);
+    Call(K32, "CloseHandle");
+    {
+        struct stat st {};
+        CHECK(::stat("d2_test_sub/d2_map.bin", &st) == 0 && st.st_size == 64,
+              "the mapped file is 64 bytes on disk");
+        const int fd = ::open("d2_test_sub/d2_map.bin", O_RDONLY);
+        unsigned char byte = 0;
+        const bool read_ok = fd >= 0 && ::pread(fd, &byte, 1, 4) == 1;
+        if (fd >= 0) ::close(fd);
+        CHECK(read_ok && byte == 0x5A, "a MAP_SHARED write reached the file");
+    }
+
+    std::printf("\n== truncate and delete ==\n");
+    const std::uint64_t trunc_file =
+        OpenFile("d2_test_sub\\d2_trunc.bin", win32::GENERIC_READ | win32::GENERIC_WRITE,
+                 win32::CREATE_ALWAYS);
+    CHECK(trunc_file != win32::kInvalidHandle, "file created for truncation");
+    {
+        std::uint8_t big[200];
+        std::memset(big, 7, sizeof(big));
+        std::uint32_t written = 0;
+        Reset(trunc_file, reinterpret_cast<std::uint64_t>(big), sizeof(big),
+              reinterpret_cast<std::uint64_t>(&written));
+        CHECK(Call(K32, "WriteFile") && written == 200, "200 bytes written");
+    }
+    Reset(trunc_file, 100, 0, win32::FILE_BEGIN);
+    Call(K32, "SetFilePointer");
+    Reset(trunc_file);
+    CHECK(Call(K32, "SetEndOfFile") && Ret() == 1, "SetEndOfFile truncates at the pointer");
+    Reset(trunc_file);
+    Call(K32, "CloseHandle");
+    {
+        struct stat st {};
+        CHECK(::stat("d2_test_sub/d2_trunc.bin", &st) == 0 && st.st_size == 100,
+              "the file is 100 bytes after SetEndOfFile");
+    }
+
+    Reset(reinterpret_cast<std::uint64_t>("d2_test_sub\\d2_trunc.bin"));
+    CHECK(Call(K32, "DeleteFileA") && Ret() == 1, "DeleteFileA removes the file");
+    {
+        struct stat st {};
+        CHECK(::stat("d2_test_sub/d2_trunc.bin", &st) != 0, "the file is really gone");
+    }
+    Reset(reinterpret_cast<std::uint64_t>("d2_test_sub\\d2_trunc.bin"));
+    Call(K32, "DeleteFileA");
+    CHECK(Ret() == 0, "DeleteFileA on a missing file returns 0");
+
     ::unlink(kRel);
     ::unlink("d2_test_sub/d2_write.bin");
+    ::unlink("d2_test_sub/d2_map.bin");
     ::rmdir(kSub);
+    if (work_dir != nullptr) {
+        ::chdir("/tmp");
+        ::rmdir(work_dir);
+    }
 
     win32::Shutdown();
     std::printf("\n%s (%d failure(s))\n", g_fail ? "FAILED" : "ALL PASSED", g_fail);
