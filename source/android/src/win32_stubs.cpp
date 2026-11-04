@@ -6,12 +6,14 @@
 #include "win32_stubs.h"
 
 #include <atomic>
+#include <cctype>
 #include <cerrno>
 #include <chrono>
 #include <condition_variable>
 #include <cstdarg>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <mutex>
 #include <string>
@@ -19,8 +21,11 @@
 #include <unordered_set>
 #include <vector>
 
+#include <fcntl.h>
 #include <pthread.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -60,6 +65,9 @@ inline std::uint64_t Arg4(CpuContext *c) {
 }
 inline std::uint64_t Arg5(CpuContext *c) {
     return recomp::GuestLoad<std::uint64_t>(c->r[recomp::RSP] + 0x30);
+}
+inline std::uint64_t Arg6(CpuContext *c) {
+    return recomp::GuestLoad<std::uint64_t>(c->r[recomp::RSP] + 0x38);
 }
 inline void SetRet(CpuContext *c, std::uint64_t v) { c->r[recomp::RAX] = v; }
 
@@ -293,8 +301,43 @@ struct GuestThread {
 
 constexpr std::uint32_t kThreadMagic = 0x54485244u;  // 'THRD'
 
-std::mutex g_thread_mutex;
-std::unordered_set<std::uint64_t> g_thread_handles;
+// Handles are host pointers, but a handle value that did not come from us must
+// never be dereferenced: the kind is looked up in this registry first.
+enum class HandleKind : std::uint32_t { kThread = 1, kFile = 2 };
+
+std::mutex g_handle_mutex;
+std::unordered_map<std::uint64_t, HandleKind> g_handles;
+
+void RegisterHandle(std::uint64_t handle, HandleKind kind) {
+    std::lock_guard<std::mutex> lock(g_handle_mutex);
+    g_handles[handle] = kind;
+}
+
+bool HandleKindOf(std::uint64_t handle, HandleKind *kind) {
+    std::lock_guard<std::mutex> lock(g_handle_mutex);
+    auto it = g_handles.find(handle);
+    if (it == g_handles.end()) return false;
+    *kind = it->second;
+    return true;
+}
+
+bool TakeHandle(std::uint64_t handle, HandleKind *kind) {
+    std::lock_guard<std::mutex> lock(g_handle_mutex);
+    auto it = g_handles.find(handle);
+    if (it == g_handles.end()) return false;
+    *kind = it->second;
+    g_handles.erase(it);
+    return true;
+}
+
+// An open guest file. The handle the guest sees is a pointer to this, never a
+// bare fd: fd numbers are small integers and would collide with NULL/thread
+// handles, and a closed fd could be reused behind the guest's back.
+struct GuestFile {
+    std::uint32_t magic;
+    int fd;
+};
+constexpr std::uint32_t kFileMagic = 0x46494C45u;  // 'FILE'
 
 void *ThreadMain(void *arg) {
     GuestThread *t = static_cast<GuestThread *>(arg);
@@ -341,10 +384,7 @@ std::uint64_t Impl_CreateThread(std::uint64_t /*attr*/, std::uint64_t stack_size
     }
 
     const std::uint64_t handle = reinterpret_cast<std::uint64_t>(t);
-    {
-        std::lock_guard<std::mutex> lock(g_thread_mutex);
-        g_thread_handles.insert(handle);
-    }
+    RegisterHandle(handle, HandleKind::kThread);
     if (thread_id_out != 0) {
         recomp::GuestStore<std::uint32_t>(thread_id_out,
                                           static_cast<std::uint32_t>(t->tid));
@@ -353,13 +393,12 @@ std::uint64_t Impl_CreateThread(std::uint64_t /*attr*/, std::uint64_t stack_size
 }
 
 std::uint32_t Impl_WaitForSingleObject(std::uint64_t handle, std::uint32_t ms) {
+    HandleKind kind;
+    if (!HandleKindOf(handle, &kind)) return WAIT_FAILED;
+    if (kind == HandleKind::kFile) return WAIT_OBJECT_0;  // synchronous file: always ready
+
     auto *t = reinterpret_cast<GuestThread *>(handle);
-    {
-        std::lock_guard<std::mutex> lock(g_thread_mutex);
-        if (t == nullptr || t->magic != kThreadMagic || !g_thread_handles.count(handle)) {
-            return WAIT_FAILED;
-        }
-    }
+    if (t == nullptr || t->magic != kThreadMagic) return WAIT_FAILED;
     std::unique_lock<std::mutex> lock(t->m);
     if (ms == INFINITE) {
         t->cv.wait(lock, [t] { return t->done; });
@@ -372,21 +411,243 @@ std::uint32_t Impl_WaitForSingleObject(std::uint64_t handle, std::uint32_t ms) {
 }
 
 std::uint32_t Impl_CloseHandle(std::uint64_t handle) {
-    auto *t = reinterpret_cast<GuestThread *>(handle);
-    bool ours = false;
+    HandleKind kind;
+    if (!TakeHandle(handle, &kind)) return 1;  // not one of ours: pretend success
+
+    if (kind == HandleKind::kThread) {
+        auto *t = reinterpret_cast<GuestThread *>(handle);
+        pthread_join(t->tid, nullptr);
+        munmap(t->stack, t->stack_size);
+        t->magic = 0;
+        delete t;
+        return 1;
+    }
+
+    auto *f = reinterpret_cast<GuestFile *>(handle);
+    if (f != nullptr) {
+        if (::close(f->fd) != 0) {
+            f->magic = 0;
+            delete f;
+            return 0;
+        }
+        f->magic = 0;
+        delete f;
+    }
+    return 1;
+}
+
+// ---------------------------------------------------------------------------
+// Files and the virtual file system
+//
+// The guest thinks in Windows paths. They are normalised here, stripped of the
+// things Windows adds and Android has no notion of (drive letters, \\?\ and
+// \\.\ prefixes), and resolved against the game's data root. Windows paths are
+// also case-insensitive, which POSIX is not, so an open that fails is retried
+// with the path lowercased before giving up.
+// ---------------------------------------------------------------------------
+std::mutex g_path_mutex;
+std::string g_data_root;
+
+std::string LowerAscii(std::string s) {
+    for (char &c : s) {
+        if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
+    }
+    return s;
+}
+
+std::string NormalizeWinPath(const std::string &in) {
+    std::string p = in;
+    for (char &c : p) {
+        if (c == '\\') c = '/';
+    }
+    if (p.rfind("//?/", 0) == 0) p.erase(0, 4);
+    else if (p.rfind("//./", 0) == 0) p.erase(0, 4);
+    // "C:foo" -> "foo": the drive has no meaning on Android.
+    if (p.size() >= 2 && p[1] == ':' && std::isalpha(static_cast<unsigned char>(p[0]))) {
+        p.erase(0, 2);
+    }
+    while (!p.empty() && p[0] == '/') p.erase(0, 1);
+    return p;
+}
+
+std::string EffectiveRoot() {
     {
-        std::lock_guard<std::mutex> lock(g_thread_mutex);
-        if (t != nullptr && t->magic == kThreadMagic && g_thread_handles.erase(handle) > 0) {
-            ours = true;
+        std::lock_guard<std::mutex> lock(g_path_mutex);
+        if (!g_data_root.empty()) return g_data_root;
+    }
+    if (const char *env = std::getenv("D2_DATA_ROOT")) {
+        if (env[0] != '\0') return NormalizeWinPath(env);
+    }
+    static const char *const kCandidates[] = {
+        "/data/data/com.vigil.darksiders2/files",
+        "/sdcard/Android/data/com.vigil.darksiders2/files",
+        ".",
+    };
+    for (const char *candidate : kCandidates) {
+        if (::access(candidate, R_OK) == 0) return candidate;
+    }
+    return ".";
+}
+
+int OpenGuestPath(const char *win_path, int flags, mode_t mode) {
+    const std::string path = ResolveGuestPath(win_path);
+    int fd = ::open(path.c_str(), flags, mode);
+    if (fd < 0) {
+        const std::string lower = LowerAscii(path);
+        if (lower != path) fd = ::open(lower.c_str(), flags, mode);
+    }
+    if (fd < 0) {
+        Log("[win32] open failed: %s (guest said \"%s\")", path.c_str(),
+            win_path ? win_path : "?");
+    }
+    return fd;
+}
+
+GuestFile *AsFile(std::uint64_t handle) {
+    HandleKind kind;
+    if (!HandleKindOf(handle, &kind) || kind != HandleKind::kFile) return nullptr;
+    auto *f = reinterpret_cast<GuestFile *>(handle);
+    return (f != nullptr && f->magic == kFileMagic) ? f : nullptr;
+}
+
+std::uint64_t Impl_CreateFile(const char *path, std::uint32_t access, std::uint64_t /*share*/,
+                              std::uint64_t /*security*/, std::uint32_t disposition,
+                              std::uint32_t /*attrs*/, std::uint64_t /*template*/) {
+    if (path == nullptr) return kInvalidHandle;
+
+    int flags = 0;
+    const bool rd = (access & GENERIC_READ) != 0;
+    const bool wr = (access & GENERIC_WRITE) != 0;
+    if (rd && wr) flags |= O_RDWR;
+    else if (wr) flags |= O_WRONLY;
+    else flags |= O_RDONLY;
+
+    switch (disposition) {
+        case CREATE_NEW: flags |= O_CREAT | O_EXCL; break;
+        case CREATE_ALWAYS: flags |= O_CREAT | O_TRUNC; break;
+        case OPEN_EXISTING: break;
+        case OPEN_ALWAYS: flags |= O_CREAT; break;
+        case TRUNCATE_EXISTING: flags |= O_TRUNC; break;
+        default: break;
+    }
+    flags |= O_CLOEXEC;
+
+    const int fd = OpenGuestPath(path, flags, 0644);
+    if (fd < 0) return kInvalidHandle;
+
+    auto *f = new GuestFile{kFileMagic, fd};
+    const std::uint64_t handle = reinterpret_cast<std::uint64_t>(f);
+    RegisterHandle(handle, HandleKind::kFile);
+    return handle;
+}
+
+std::uint32_t Impl_ReadFile(std::uint64_t handle, std::uint64_t buffer, std::uint32_t count,
+                            std::uint64_t read_out, std::uint64_t /*overlapped*/) {
+    GuestFile *f = AsFile(handle);
+    if (f == nullptr) return 0;
+    const ssize_t got = ::read(f->fd, reinterpret_cast<void *>(buffer), count);
+    if (read_out != 0) {
+        recomp::GuestStore<std::uint32_t>(
+            read_out, got > 0 ? static_cast<std::uint32_t>(got) : 0u);
+    }
+    return got >= 0 ? 1u : 0u;
+}
+
+std::uint32_t Impl_WriteFile(std::uint64_t handle, std::uint64_t buffer, std::uint32_t count,
+                             std::uint64_t written_out, std::uint64_t /*overlapped*/) {
+    GuestFile *f = AsFile(handle);
+    if (f == nullptr) return 0;
+    const ssize_t put = ::write(f->fd, reinterpret_cast<const void *>(buffer), count);
+    if (written_out != 0) {
+        recomp::GuestStore<std::uint32_t>(
+            written_out, put > 0 ? static_cast<std::uint32_t>(put) : 0u);
+    }
+    return put >= 0 ? 1u : 0u;
+}
+
+std::uint32_t Impl_SetFilePointer(std::uint64_t handle, std::uint32_t dist_low,
+                                  std::uint64_t dist_high_out, std::uint32_t method) {
+    GuestFile *f = AsFile(handle);
+    if (f == nullptr) return 0xFFFFFFFFu;
+
+    std::int64_t distance = static_cast<std::int64_t>(static_cast<std::int32_t>(dist_low));
+    if (dist_high_out != 0) {
+        distance |= static_cast<std::int64_t>(recomp::GuestLoad<std::uint32_t>(dist_high_out))
+                    << 32;
+    }
+    const int whence = method == FILE_CURRENT ? SEEK_CUR : method == FILE_END ? SEEK_END : SEEK_SET;
+    const off64_t pos = ::lseek64(f->fd, static_cast<off64_t>(distance), whence);
+    if (pos < 0) return 0xFFFFFFFFu;
+    if (dist_high_out != 0) {
+        recomp::GuestStore<std::uint32_t>(dist_high_out,
+                                          static_cast<std::uint32_t>(
+                                              static_cast<std::uint64_t>(pos) >> 32));
+    }
+    return static_cast<std::uint32_t>(static_cast<std::uint64_t>(pos) & 0xFFFFFFFFull);
+}
+
+std::uint32_t Impl_SetFilePointerEx(std::uint64_t handle, std::int64_t distance,
+                                    std::uint64_t new_pos_out, std::uint32_t method) {
+    GuestFile *f = AsFile(handle);
+    if (f == nullptr) return 0;
+    const int whence = method == FILE_CURRENT ? SEEK_CUR : method == FILE_END ? SEEK_END : SEEK_SET;
+    const off64_t pos = ::lseek64(f->fd, static_cast<off64_t>(distance), whence);
+    if (pos < 0) return 0;
+    if (new_pos_out != 0) {
+        recomp::GuestStore<std::uint64_t>(new_pos_out, static_cast<std::uint64_t>(pos));
+    }
+    return 1;
+}
+
+std::uint32_t Impl_GetFileSizeEx(std::uint64_t handle, std::uint64_t size_out) {
+    GuestFile *f = AsFile(handle);
+    if (f == nullptr) return 0;
+    struct stat st {};
+    if (::fstat(f->fd, &st) != 0) return 0;
+    if (size_out != 0) {
+        recomp::GuestStore<std::uint64_t>(size_out, static_cast<std::uint64_t>(st.st_size));
+    }
+    return 1;
+}
+
+std::uint32_t Impl_GetFileSize(std::uint64_t handle, std::uint64_t high_out) {
+    GuestFile *f = AsFile(handle);
+    if (f == nullptr) return 0xFFFFFFFFu;
+    struct stat st {};
+    if (::fstat(f->fd, &st) != 0) return 0xFFFFFFFFu;
+    const std::uint64_t size = static_cast<std::uint64_t>(st.st_size);
+    if (high_out != 0) {
+        recomp::GuestStore<std::uint32_t>(high_out, static_cast<std::uint32_t>(size >> 32));
+    }
+    return static_cast<std::uint32_t>(size & 0xFFFFFFFFull);
+}
+
+// UTF-16 (Windows wide string) -> UTF-8, for CreateFileW.
+std::string Utf16ToUtf8(const std::uint16_t *w) {
+    std::string out;
+    if (w == nullptr) return out;
+    for (std::size_t i = 0; w[i] != 0; ++i) {
+        std::uint32_t cp = w[i];
+        if (cp >= 0xD800 && cp <= 0xDBFF && w[i + 1] >= 0xDC00 && w[i + 1] <= 0xDFFF) {
+            cp = 0x10000 + ((cp - 0xD800) << 10) + (w[++i] - 0xDC00);
+        }
+        if (cp < 0x80) {
+            out.push_back(static_cast<char>(cp));
+        } else if (cp < 0x800) {
+            out.push_back(static_cast<char>(0xC0 | (cp >> 6)));
+            out.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+        } else if (cp < 0x10000) {
+            out.push_back(static_cast<char>(0xE0 | (cp >> 12)));
+            out.push_back(static_cast<char>(0x80 | ((cp >> 6) & 0x3F)));
+            out.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+        } else {
+            out.push_back(static_cast<char>(0xF0 | (cp >> 18)));
+            out.push_back(static_cast<char>(0x80 | ((cp >> 12) & 0x3F)));
+            out.push_back(static_cast<char>(0x80 | ((cp >> 6) & 0x3F)));
+            out.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
         }
     }
-    if (!ours) return 1;  // not a thread handle we own: pretend success
-
-    pthread_join(t->tid, nullptr);
-    munmap(t->stack, t->stack_size);
-    t->magic = 0;
-    delete t;
-    return 1;
+    return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -589,6 +850,41 @@ void Stub_OutputDebugStringA(CpuContext *c) {
     SetRet(c, 0);
 }
 
+// ---- file I/O ----
+void Stub_CreateFileA(CpuContext *c) {
+    SetRet(c, Impl_CreateFile(reinterpret_cast<const char *>(Arg0(c)),
+                              static_cast<std::uint32_t>(Arg1(c)),
+                              static_cast<std::uint32_t>(Arg2(c)), Arg3(c),
+                              static_cast<std::uint32_t>(Arg4(c)),
+                              static_cast<std::uint32_t>(Arg5(c)), Arg6(c)));
+}
+void Stub_CreateFileW(CpuContext *c) {
+    const std::string path =
+        Utf16ToUtf8(reinterpret_cast<const std::uint16_t *>(Arg0(c)));
+    SetRet(c, Impl_CreateFile(path.c_str(), static_cast<std::uint32_t>(Arg1(c)),
+                              static_cast<std::uint32_t>(Arg2(c)), Arg3(c),
+                              static_cast<std::uint32_t>(Arg4(c)),
+                              static_cast<std::uint32_t>(Arg5(c)), Arg6(c)));
+}
+void Stub_ReadFile(CpuContext *c) {
+    SetRet(c, Impl_ReadFile(Arg0(c), Arg1(c), static_cast<std::uint32_t>(Arg2(c)), Arg3(c),
+                            Arg4(c)));
+}
+void Stub_WriteFile(CpuContext *c) {
+    SetRet(c, Impl_WriteFile(Arg0(c), Arg1(c), static_cast<std::uint32_t>(Arg2(c)), Arg3(c),
+                             Arg4(c)));
+}
+void Stub_SetFilePointer(CpuContext *c) {
+    SetRet(c, Impl_SetFilePointer(Arg0(c), static_cast<std::uint32_t>(Arg1(c)), Arg2(c),
+                                  static_cast<std::uint32_t>(Arg3(c))));
+}
+void Stub_SetFilePointerEx(CpuContext *c) {
+    SetRet(c, Impl_SetFilePointerEx(Arg0(c), static_cast<std::int64_t>(Arg1(c)), Arg2(c),
+                                    static_cast<std::uint32_t>(Arg3(c))));
+}
+void Stub_GetFileSize(CpuContext *c) { SetRet(c, Impl_GetFileSize(Arg0(c), Arg1(c))); }
+void Stub_GetFileSizeEx(CpuContext *c) { SetRet(c, Impl_GetFileSizeEx(Arg0(c), Arg1(c))); }
+
 }  // namespace
 
 // ---------------------------------------------------------------------------
@@ -598,6 +894,35 @@ bool IsThunk(std::uint64_t addr) noexcept { return addr >= kThunkBase && addr < 
 
 void SetRecompApi(const RcApi *api) noexcept { g_api = api; }
 const RcApi *GetRecompApi() noexcept { return g_api; }
+
+// ---------------------------------------------------------------------------
+// Virtual file system (public: the runtime resolves paths by the same rules)
+// ---------------------------------------------------------------------------
+std::string ResolveGuestPath(const char *win_path) {
+    if (win_path == nullptr) return std::string();
+    const std::string rel = NormalizeWinPath(win_path);
+    const std::string root = EffectiveRoot();
+    if (rel.empty()) return root;
+    if (root.empty()) return rel;
+    if (root.back() == '/') return root + rel;
+    return root + "/" + rel;
+}
+
+void SetDataRoot(const char *root) {
+    std::lock_guard<std::mutex> lock(g_path_mutex);
+    if (root == nullptr) {
+        g_data_root.clear();
+        return;
+    }
+    std::string p = root;
+    for (char &c : p) {
+        if (c == '\\') c = '/';
+    }
+    while (p.size() > 1 && p.back() == '/') p.pop_back();
+    g_data_root = p;
+}
+
+std::string GetDataRoot() { return EffectiveRoot(); }
 
 bool HasModule(const char *module) {
     std::lock_guard<std::mutex> lock(g_registry_mutex);
@@ -647,6 +972,14 @@ void RegisterBuiltins() {
             {"kernel32.dll", "TlsSetValue", Stub_TlsSetValue},
             {"kernel32.dll", "TlsFree", Stub_TlsFree},
             {"kernel32.dll", "OutputDebugStringA", Stub_OutputDebugStringA},
+            {"kernel32.dll", "CreateFileA", Stub_CreateFileA},
+            {"kernel32.dll", "CreateFileW", Stub_CreateFileW},
+            {"kernel32.dll", "ReadFile", Stub_ReadFile},
+            {"kernel32.dll", "WriteFile", Stub_WriteFile},
+            {"kernel32.dll", "SetFilePointer", Stub_SetFilePointer},
+            {"kernel32.dll", "SetFilePointerEx", Stub_SetFilePointerEx},
+            {"kernel32.dll", "GetFileSize", Stub_GetFileSize},
+            {"kernel32.dll", "GetFileSizeEx", Stub_GetFileSizeEx},
         };
         for (const Entry &e : kEntries) {
             AddStub(e.module, e.name, e.fn);
@@ -701,15 +1034,24 @@ void Shutdown() {
         g_crit.clear();
     }
     {
-        std::lock_guard<std::mutex> lock(g_thread_mutex);
-        for (std::uint64_t handle : g_thread_handles) {
-            auto *t = reinterpret_cast<GuestThread *>(handle);
-            pthread_join(t->tid, nullptr);
-            munmap(t->stack, t->stack_size);
-            t->magic = 0;
-            delete t;
+        std::lock_guard<std::mutex> lock(g_handle_mutex);
+        for (auto &kv : g_handles) {
+            if (kv.second == HandleKind::kThread) {
+                auto *t = reinterpret_cast<GuestThread *>(kv.first);
+                pthread_join(t->tid, nullptr);
+                munmap(t->stack, t->stack_size);
+                t->magic = 0;
+                delete t;
+            } else {
+                auto *f = reinterpret_cast<GuestFile *>(kv.first);
+                if (f != nullptr) {
+                    ::close(f->fd);
+                    f->magic = 0;
+                    delete f;
+                }
+            }
         }
-        g_thread_handles.clear();
+        g_handles.clear();
     }
     {
         std::lock_guard<std::mutex> lock(g_tls_mutex);

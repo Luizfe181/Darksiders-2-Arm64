@@ -11,6 +11,10 @@
 #include <cstdio>
 #include <cstring>
 
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
 #include "win32_stubs.h"
 
 // The static test binary has no liblog.a, so provide the one symbol the shims
@@ -193,6 +197,120 @@ int main() {
     Reset();
     Call(K32, "GetTickCount64");
     CHECK(Ret() > 0, "GetTickCount64 returns a positive tick count");
+
+    std::printf("\n== file I/O and VFS ==\n");
+
+    constexpr const char *kSub = "d2_test_sub";
+    constexpr const char *kRel = "d2_test_sub/d2_selftest.bin";
+    ::mkdir(kSub, 0755);
+    {
+        const int fd = ::open(kRel, O_CREAT | O_TRUNC | O_WRONLY, 0644);
+        CHECK(fd >= 0, "host: dummy file created (4096 bytes of 0..255)");
+        std::uint8_t pattern[256];
+        for (int i = 0; i < 256; ++i) pattern[i] = static_cast<std::uint8_t>(i);
+        for (int i = 0; i < 16; ++i) {
+            if (::write(fd, pattern, sizeof(pattern)) != static_cast<ssize_t>(sizeof(pattern))) {
+                break;
+            }
+        }
+        ::close(fd);
+    }
+
+    win32::SetDataRoot(".");
+    CHECK(win32::ResolveGuestPath("media\\media.upak") == "./media/media.upak",
+          "Windows path separators and the data root are applied");
+    CHECK(win32::ResolveGuestPath("C:\\Games\\DS2\\media\\x.bin") == "./Games/DS2/media/x.bin",
+          "drive letter stripped (C:\\... -> Games/DS2/media/x.bin)");
+
+    // CreateFileA(path, access, share, security, disposition, attrs, template):
+    // the last three are stack arguments.
+    Reset(reinterpret_cast<std::uint64_t>("d2_test_sub\\d2_selftest.bin"), win32::GENERIC_READ, 0, 0);
+    SetStackArg(0, win32::OPEN_EXISTING);
+    SetStackArg(1, 0);
+    SetStackArg(2, 0);
+    CHECK(Call(K32, "CreateFileA"), "CreateFileA dispatched");
+    const std::uint64_t fh = Ret();
+    CHECK(fh != win32::kInvalidHandle && fh != 0, "CreateFileA opens a backslash path");
+
+    std::uint64_t size = 0;
+    Reset(fh, reinterpret_cast<std::uint64_t>(&size));
+    CHECK(Call(K32, "GetFileSizeEx") && Ret() == 1, "GetFileSizeEx");
+    CHECK(size == 4096, "GetFileSizeEx reports 4096 bytes");
+
+    std::uint8_t buf[16] = {};
+    std::uint32_t got = 0xFFFF;
+    Reset(fh, reinterpret_cast<std::uint64_t>(buf), 16, reinterpret_cast<std::uint64_t>(&got));
+    CHECK(Call(K32, "ReadFile") && Ret() == 1, "ReadFile");
+    CHECK(got == 16 && buf[0] == 0 && buf[15] == 15, "ReadFile returns the first 16 bytes");
+
+    std::uint64_t new_pos = 0;
+    Reset(fh, 1000, reinterpret_cast<std::uint64_t>(&new_pos), win32::FILE_BEGIN);
+    CHECK(Call(K32, "SetFilePointerEx") && Ret() == 1, "SetFilePointerEx");
+    CHECK(new_pos == 1000, "SetFilePointerEx lands at offset 1000");
+
+    got = 0;
+    Reset(fh, reinterpret_cast<std::uint64_t>(buf), 4, reinterpret_cast<std::uint64_t>(&got));
+    Call(K32, "ReadFile");
+    CHECK(got == 4 && buf[0] == 232, "ReadFile after seek reads byte 232 (1000 = 3*256+232)");
+
+    Reset(fh, 0, 0, win32::FILE_BEGIN);
+    CHECK(Call(K32, "SetFilePointer") && Ret() == 0, "SetFilePointer(FILE_BEGIN, 0) returns 0");
+
+    Reset(fh, 0);
+    CHECK(Call(K32, "GetFileSize") && Ret() == 4096, "GetFileSize returns the low 32 bits");
+
+    Reset(fh);
+    CHECK(Call(K32, "CloseHandle") && Ret() == 1, "CloseHandle closes a file handle");
+
+    // A missing file must fail the way Windows does.
+    Reset(reinterpret_cast<std::uint64_t>("d2_test_sub\\nope.bin"), win32::GENERIC_READ, 0, 0);
+    SetStackArg(0, win32::OPEN_EXISTING);
+    SetStackArg(1, 0);
+    SetStackArg(2, 0);
+    Call(K32, "CreateFileA");
+    CHECK(Ret() == win32::kInvalidHandle,
+          "opening a missing file returns INVALID_HANDLE_VALUE");
+
+    // Write path, and CreateFileW (UTF-16).
+    Reset(reinterpret_cast<std::uint64_t>("d2_test_sub\\d2_write.bin"), win32::GENERIC_WRITE, 0, 0);
+    SetStackArg(0, win32::CREATE_ALWAYS);
+    SetStackArg(1, 0);
+    SetStackArg(2, 0);
+    Call(K32, "CreateFileA");
+    const std::uint64_t wh = Ret();
+    CHECK(wh != win32::kInvalidHandle, "CreateFileA(CREATE_ALWAYS) creates a file");
+    {
+        const std::uint8_t data[8] = {1, 2, 3, 4, 5, 6, 7, 8};
+        std::uint32_t written = 0;
+        Reset(wh, reinterpret_cast<std::uint64_t>(data), 8,
+              reinterpret_cast<std::uint64_t>(&written));
+        CHECK(Call(K32, "WriteFile") && Ret() == 1 && written == 8, "WriteFile writes 8 bytes");
+        Reset(wh);
+        Call(K32, "CloseHandle");
+
+        struct stat st {};
+        CHECK(::stat("d2_test_sub/d2_write.bin", &st) == 0 && st.st_size == 8,
+              "the bytes really landed on disk");
+    }
+
+    {
+        const std::uint16_t wpath[] = {'d', '2', '_', 't', 'e', 's', 't', '_', 's', 'u', 'b',
+                                       '/', 'd', '2', '_', 's', 'e', 'l', 'f', 't', 'e', 's',
+                                       't', '.', 'b', 'i', 'n', 0};
+        Reset(reinterpret_cast<std::uint64_t>(wpath), win32::GENERIC_READ, 0, 0);
+        SetStackArg(0, win32::OPEN_EXISTING);
+        SetStackArg(1, 0);
+        SetStackArg(2, 0);
+        CHECK(Call(K32, "CreateFileW") && Ret() != win32::kInvalidHandle,
+              "CreateFileW opens the same file from a UTF-16 path");
+        const std::uint64_t h = Ret();
+        Reset(h);
+        Call(K32, "CloseHandle");
+    }
+
+    ::unlink(kRel);
+    ::unlink("d2_test_sub/d2_write.bin");
+    ::rmdir(kSub);
 
     win32::Shutdown();
     std::printf("\n%s (%d failure(s))\n", g_fail ? "FAILED" : "ALL PASSED", g_fail);
