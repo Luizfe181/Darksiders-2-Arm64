@@ -4,38 +4,46 @@ plugins {
 
 android {
     namespace 'com.vigil.darksiders2'
+    // 34 e a plataforma estavel de referencia; o SDK local pode ter outra.
     compileSdk 34
 
     defaultConfig {
         applicationId "com.vigil.darksiders2"
-        minSdk 26 // Android 8.0+ (suporte garantido a Vulkan 1.1 + ARM64)
-        targetSdk 34
+        minSdk 26        // Vulkan 1.1 garantido; alvo do CMake e android-26
+        targetSdk 31     // 31: storage classico e sem restricoes de exported
         versionCode 1
         versionName "1.0.0-alpha"
 
         ndk {
+            // O runtime so existe para arm64 (NDK r27c, aarch64-linux-android26).
             abiFilters 'arm64-v8a'
         }
 
         externalNativeBuild {
             cmake {
-                arguments "-DANDROID_STL=c++_shared"
+                arguments "-DANDROID_STL=c++_shared", "-DANDROID_PLATFORM=android-26"
                 cppFlags "-std=c++17"
             }
         }
     }
 
     buildTypes {
+        debug {
+            // O "boot test" usa o debug: sem minify, para o logcat mostrar tudo.
+            minifyEnabled false
+            jniDebuggable true
+        }
         release {
             minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'),
+                          'proguard-rules.pro'
         }
     }
 
     externalNativeBuild {
         cmake {
+            // Sem `version`: usa o CMake do SDK/AGP em vez de exigir um exacto.
             path file('../CMakeLists.txt')
-            version '3.22.1'
         }
     }
 
@@ -43,8 +51,14 @@ android {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
+
+    packagingOptions {
+        jniLibs {
+            // SDL2 e o runtime carregam libc++_shared.so directamente do APK.
+            useLegacyPackaging = true
+        }
+    }
 }
 
-dependencies {
-    implementation 'androidx.appcompat:appcompat:1.6.1'
-}
+// Sem dependencias: a Activity herda de org.libsdl.app.SDLActivity, cujos
+// fontes estao copiados em src/main/java (SDL2 2.30.9, licenca zlib).

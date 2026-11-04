@@ -24,6 +24,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <string>
 
 #include "cpu_context.h"
 
@@ -63,7 +64,83 @@ enum : std::uint32_t {
     WAIT_OBJECT_0 = 0x00000000u,
     WAIT_TIMEOUT = 0x00000102u,
     WAIT_FAILED = 0xFFFFFFFFu,
+
+    // CreateFile access and disposition
+    GENERIC_READ = 0x80000000u,
+    GENERIC_WRITE = 0x40000000u,
+    CREATE_NEW = 1,
+    CREATE_ALWAYS = 2,
+    OPEN_EXISTING = 3,
+    OPEN_ALWAYS = 4,
+    TRUNCATE_EXISTING = 5,
+
+    // SetFilePointer move methods
+    FILE_BEGIN = 0,
+    FILE_CURRENT = 1,
+    FILE_END = 2,
+
+    // GetFileAttributes / WIN32_FIND_DATA
+    FILE_ATTRIBUTE_READONLY = 0x00000001,
+    FILE_ATTRIBUTE_HIDDEN = 0x00000002,
+    FILE_ATTRIBUTE_SYSTEM = 0x00000004,
+    FILE_ATTRIBUTE_DIRECTORY = 0x00000010,
+    FILE_ATTRIBUTE_ARCHIVE = 0x00000020,
+    FILE_ATTRIBUTE_NORMAL = 0x00000080,
+
+    // MapViewOfFile desired access
+    FILE_MAP_COPY = 0x0001,
+    FILE_MAP_WRITE = 0x0002,
+    FILE_MAP_READ = 0x0004,
+    FILE_MAP_ALL_ACCESS = 0x000F001F,
 };
+
+// INVALID_HANDLE_VALUE is (HANDLE)-1, i.e. all bits set.
+inline constexpr std::uint64_t kInvalidHandle = ~0ull;
+// GetFileAttributes returns this on failure.
+inline constexpr std::uint32_t kInvalidFileAttributes = 0xFFFFFFFFu;
+
+// Windows' fixed layout constants, needed because the guest allocates these
+// structs itself and reads them field by field.
+inline constexpr std::size_t kMaxPath = 260;
+inline constexpr std::size_t kFindDataSize = 0x140;   // sizeof(WIN32_FIND_DATAA) on Win64
+inline constexpr std::size_t kFindDataSizeW = 0x250;  // sizeof(WIN32_FIND_DATAW) on Win64
+inline constexpr std::size_t kFileAttributeDataSize = 0x34;
+
+// ---------------------------------------------------------------------------
+// Virtual file system
+//
+// The guest passes Windows paths. They are normalised ('\' -> '/'), stripped of
+// drive/UNC prefixes, and resolved against the game's data root -- the directory
+// that holds media/, maps.upak, etc.
+// ---------------------------------------------------------------------------
+void SetDataRoot(const char *root);
+std::string GetDataRoot();
+
+// The host path a guest path resolves to. Exposed so the runtime can open the
+// containers (media.upak) by the same rules the guest's CreateFile uses.
+std::string ResolveGuestPath(const char *win_path);
+
+// ---------------------------------------------------------------------------
+// D3D11 / DXGI -- DXVK 1.10.3
+//
+// DXVK implements these entry points. It is loaded at run time from
+// libdxvk_d3d11.so when present (override with D2_DXVK); until then the shims
+// fail the way a machine without a GPU does instead of crashing, and the log
+// says what is missing.
+//
+// DXVK's swapchain expects an HWND on Windows. Android has none: the swapchain
+// has to be built on the VkSurfaceKHR that the platform layer created, which is
+// what SetRenderingSurface() publishes. A DXVK build for this port reads it
+// through RenderingSurface().
+// ---------------------------------------------------------------------------
+bool LoadDxvk(const char *library_path = nullptr);
+bool IsDxvkLoaded();
+
+void SetRenderingSurface(std::uint64_t vk_surface);
+std::uint64_t RenderingSurface();
+
+// HRESULT E_FAIL, the value Windows returns when no device can be made.
+inline constexpr std::int32_t kD3dErrFail = static_cast<std::int32_t>(0x80004005u);
 
 // True when `addr` is in the thunk range.
 bool IsThunk(std::uint64_t addr) noexcept;

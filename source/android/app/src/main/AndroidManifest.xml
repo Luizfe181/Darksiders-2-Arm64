@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- minSdk 26: Vulkan 1.1 garantido e arm64-v8a como unica ABI. -->
+    <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="31" />
+
+    <!-- Leitura dos assets (media.upak) e dos drivers Vulkan customizados. -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="29" />
+    <!-- Android 11+: necessario para ler /sdcard/Darksiders2 e /sdcard/Download.
+         Tem de ser pedida ao utilizador em runtime (Settings > All files access). -->
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+
+    <!-- Vulkan 1.1 (level 1). A versao hexadecimal do `vulkan.version` e
+         aceite de forma inconsistente pelo aapt; o `level` e inequivoco. -->
+    <uses-feature android:name="android.hardware.vulkan.level" android:version="1"
+        android:required="true" />
+    <uses-feature android:name="android.hardware.gamepad" android:required="false" />
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+
+    <application
+        android:label="@string/app_name"
+        android:allowBackup="false"
+        android:hasCode="true"
+        android:hardwareAccelerated="true">
+
+        <activity
+            android:name=".Darksiders2Activity"
+            android:exported="true"
+            android:launchMode="singleInstance"
+            android:screenOrientation="sensorLandscape"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|uiMode|density"
+            android:theme="@android:style/Theme.NoTitleBar.Fullscreen">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

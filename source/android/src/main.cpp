@@ -3,6 +3,7 @@
 
 #include <cctype>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -57,10 +58,9 @@ std::string JoinPath(const std::string &dir, const char *name) {
     return (last == '/' || last == '\\') ? dir + name : dir + "/" + name;
 }
 
-// Reads `data_root = <path>` from an ini file. Accepts a few spellings and
-// ignores sections and comments; an Android build has no registry to fall back
-// on, so the file is the only user-facing override.
-std::string ReadConfigDataRoot(const std::string &ini_path) {
+// Reads `key = value` from an ini file. Android has no registry, so the file is
+// the only user-facing override.
+std::string ReadConfigValue(const std::string &ini_path, const char *wanted_key) {
     std::FILE *file = std::fopen(ini_path.c_str(), "rb");
     if (file == nullptr) return std::string();
 
@@ -73,10 +73,8 @@ std::string ReadConfigDataRoot(const std::string &ini_path) {
         if (sep == std::string::npos) continue;
 
         const std::string key = LowerAscii(Trim(text.substr(0, sep)));
-        if (key != "data_root" && key != "game_path" && key != "gamedir" && key != "path" &&
-            key != "data") {
-            continue;
-        }
+        if (key != wanted_key) continue;
+
         value = Trim(text.substr(sep + 1));
         if (value.size() >= 2 && (value.front() == '"' || value.front() == '\'') &&
             value.back() == value.front()) {
@@ -85,8 +83,12 @@ std::string ReadConfigDataRoot(const std::string &ini_path) {
         break;
     }
     std::fclose(file);
-    return StripTrailingSlashes(value);
+    return value;
 }
+
+// Reads the data root, accepting a few spellings for the same thing.
+// (Kept as a helper for callers that only have a path; ConfiguredDataRoot()
+// is what the runtime uses because it also checks the app's storage.)
 
 void AddCandidate(std::vector<std::string> *out, const std::string &dir) {
     if (dir.empty()) return;
@@ -115,6 +117,25 @@ std::string AndroidExternalPath() {
 #endif
 }
 
+// A key from config.ini: the working directory first, then the app's storage.
+std::string ConfiguredValue(const char *key) {
+    std::string value = ReadConfigValue("config.ini", key);
+    if (value.empty()) {
+        const std::string app_dir = AndroidInternalPath();
+        if (!app_dir.empty()) value = ReadConfigValue(JoinPath(app_dir, "config.ini"), key);
+    }
+    return value;
+}
+
+std::string ConfiguredDataRoot() {
+    static const char *const kKeys[] = {"data_root", "game_path", "gamedir", "path", "data"};
+    for (const char *key : kKeys) {
+        const std::string value = ConfiguredValue(key);
+        if (!value.empty()) return StripTrailingSlashes(value);
+    }
+    return std::string();
+}
+
 // VkSurfaceKHR is a pointer on some header configurations and a uint64_t on
 // others, so convert through memory instead of assuming either.
 std::uint64_t HandleToInteger(VkSurfaceKHR handle) {
@@ -128,12 +149,7 @@ std::uint64_t HandleToInteger(VkSurfaceKHR handle) {
 
 bool HostRuntime::InitDataRoot() {
     const std::string app_dir = AndroidInternalPath();
-
-    // config.ini: first beside the working directory, then in the app's storage.
-    std::string configured = ReadConfigDataRoot("config.ini");
-    if (configured.empty() && !app_dir.empty()) {
-        configured = ReadConfigDataRoot(JoinPath(app_dir, "config.ini"));
-    }
+    const std::string configured = ConfiguredDataRoot();
     if (!configured.empty()) {
         LOGI("config.ini: data_root = %s", configured.c_str());
     }
@@ -207,6 +223,45 @@ bool HostRuntime::CreateWindow() {
 }
 
 bool HostRuntime::CreateVulkanContext() {
+    // A custom driver (Mesa Turnip / freedreno) must be installed BEFORE the
+    // instance exists, because the loader chooses the ICD at vkCreateInstance.
+    //
+    // Turnip ships as an ICD, not as a loader: the system libvulkan.so picks it
+    // up through VK_ICD_FILENAMES, and SDL is asked to load it directly too for
+    // builds that export the whole API. Both are set so either packaging works.
+    const std::string custom_driver = ConfiguredValue("custom_driver");
+    if (!custom_driver.empty()) {
+        if (!FileExists(custom_driver)) {
+            LOGE("custom_driver: ficheiro nao encontrado: %s", custom_driver.c_str());
+        } else {
+            ::setenv("VK_ICD_FILENAMES", custom_driver.c_str(), 1);
+            if (SDL_Vulkan_LoadLibrary(custom_driver.c_str()) == 0) {
+                m_custom_driver_loaded = true;
+                LOGI("Vulkan: driver customizado carregado: %s", custom_driver.c_str());
+            } else {
+                LOGI("Vulkan: SDL nao carregou %s (%s); a usar o loader do sistema com "
+                     "VK_ICD_FILENAMES",
+                     custom_driver.c_str(), SDL_GetError());
+            }
+        }
+    }
+
+    // Source of vkCreateInstance: whichever library SDL ended up with, so the
+    // instance and the surface always come from the same driver.
+    // SDL returns the raw pointer; the loader entry takes (instance, name).
+    PFN_vkGetInstanceProcAddr get_proc_addr =
+        reinterpret_cast<PFN_vkGetInstanceProcAddr>(SDL_Vulkan_GetVkGetInstanceProcAddr());
+    if (get_proc_addr == nullptr) {
+        LOGE("SDL_Vulkan_GetVkGetInstanceProcAddr falhou: %s", SDL_GetError());
+        return false;
+    }
+    auto create_instance = reinterpret_cast<PFN_vkCreateInstance>(
+        get_proc_addr(VK_NULL_HANDLE, "vkCreateInstance"));
+    if (create_instance == nullptr) {
+        LOGE("vkCreateInstance indisponivel no driver carregado.");
+        return false;
+    }
+
     // 1. Ask SDL which instance extensions its surface needs (surface + the
     //    platform one). This is what makes the window usable as a surface.
     unsigned extension_count = 0;
@@ -235,7 +290,7 @@ bool HostRuntime::CreateVulkanContext() {
     create_info.enabledExtensionCount = extension_count;
     create_info.ppEnabledExtensionNames = extensions.data();
 
-    VkResult result = vkCreateInstance(&create_info, nullptr, &m_instance);
+    VkResult result = create_instance(&create_info, nullptr, &m_instance);
     if (result != VK_SUCCESS) {
         LOGE("vkCreateInstance falhou: %d", static_cast<int>(result));
         m_instance = VK_NULL_HANDLE;
@@ -365,6 +420,10 @@ void HostRuntime::Shutdown() {
         vkDestroyInstance(m_instance, nullptr);
     }
     m_instance = VK_NULL_HANDLE;
+    if (m_custom_driver_loaded) {
+        SDL_Vulkan_UnloadLibrary();
+        m_custom_driver_loaded = false;
+    }
 
     if (m_window != nullptr) {
         SDL_DestroyWindow(m_window);
