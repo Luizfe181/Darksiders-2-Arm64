@@ -1,0 +1,22 @@
+# Arquivos proprietários do jogo original (NÃO ENVIAR AO GIT)
+game_original/*
+!game_original/.gitkeep
+
+# Builds do Android NDK, CMake e IDEs
+.cxx/
+build/
+.idea/
+.gradle/
+*.apk
+*.so
+
+# Python e Cache do Harness
+__pycache__/
+*.pyc
+*.sqlite
+*.sqlite3
+analysis/reports/*
+!analysis/reports/.gitkeep
+
+# Ferramentas e Binarios locais
+tools/*.exe

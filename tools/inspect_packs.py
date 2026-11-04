@@ -1,44 +1,37 @@
 import os
-import glob
+import struct
 import json
 
-game_dir = "game_original"
-report_path = os.path.join("analysis", "reports", "pack_files_inventory.json")
+upak_path = os.path.join("game_original", "media", "media.upak")
+report_path = os.path.join("analysis", "reports", "upak_header.json")
 
-print(f"[*] Varrendo diretório de dados em: {game_dir}")
+if not os.path.exists(upak_path):
+    print(f"[!] Erro: Arquivo nao encontrado em {upak_path}")
+    exit(1)
 
-pack_files = []
-for ext in ('*.opp', '*.pck', '*.pak'):
-    pack_files.extend(glob.glob(os.path.join(game_dir, '**', ext), recursive=True))
+print(f"[*] Analisando o arquivo de dados principal: {upak_path}")
 
-inventory = []
-
-for file_path in pack_files:
-    file_size = os.path.getsize(file_path)
-    file_name = os.path.basename(file_path)
+with open(upak_path, "rb") as f:
+    header_bytes = f.read(64)
+    magic_hex = header_bytes[:16].hex(' ').upper()
+    magic_ascii = ''.join([chr(b) if 32 <= b <= 126 else '.' for b in header_bytes[:16]])
     
-    header_hex = ""
-    try:
-        with open(file_path, "rb") as f:
-            header_bytes = f.read(16)
-            header_hex = header_bytes.hex(' ').upper()
-    except Exception as e:
-        header_hex = f"Erro de leitura: {str(e)}"
-        
-    inventory.append({
-        "name": file_name,
-        "path": file_path,
-        "size_bytes": file_size,
-        "size_mb": round(file_size / (1024 * 1024), 2),
-        "header_magic_hex": header_hex
-    })
+    # Leitura de inteiros do inicio do pacote (Little Endian)
+    v1, v2, v3, v4 = struct.unpack("<IIII", header_bytes[:16])
 
-print(f"[+] Encontrados {len(inventory)} arquivos de pacote (.opp / .pck / .pak).")
-for item in inventory[:10]:  # Exibe os 10 primeiros no terminal
-    print(f"  - {item['name']:30} | {item['size_mb']:8.2f} MB | Header: {item['header_magic_hex']}")
+print(f"[+] Magic Bytes (HEX)  : {magic_hex}")
+print(f"[+] ASCII Equivalente   : {magic_ascii}")
+print(f"[+] Valores Int (LE)    : v1={v1}, v2={v2}, v3={v3}, v4={v4}")
+
+info = {
+    "file": "media.upak",
+    "magic_hex": magic_hex,
+    "magic_ascii": magic_ascii,
+    "parsed_ints": [v1, v2, v3, v4]
+}
 
 os.makedirs(os.path.dirname(report_path), exist_ok=True)
-with open(report_path, "w", encoding="utf-8") as f:
-    json.dump(inventory, f, indent=4)
+with open(report_path, "w", encoding="utf-8") as out:
+    json.dump(info, out, indent=4)
 
-print(f"\n[+] Inventário de pacotes salvo em: {report_path}")
+print(f"\n[+] Relatorio de header UPAK salvo em: {report_path}")

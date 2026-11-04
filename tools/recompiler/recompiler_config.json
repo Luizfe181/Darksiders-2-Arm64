@@ -1,0 +1,8 @@
+{
+    "project_name": "Darksiders2_Recomp",
+    "target_executable": "game_original/Darksiders2.exe",
+    "output_cpp_dir": "source/android/src/recompiled/",
+    "architecture": "x86_64",
+    "target_abi": "arm64-v8a",
+    "reference_module": "bloodborne-recomp"
+}
