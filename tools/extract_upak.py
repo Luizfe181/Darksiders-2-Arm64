@@ -1,70 +1,53 @@
-import os
-import struct
-import json
+"""
+media.upak extractor -- CORRECTED.
 
-upak_path = os.path.join("game_original", "media", "media.upak")
-output_report = os.path.join("analysis", "reports", "upak_toc_inventory.json")
+The previous version of this file applied an invented XOR key
+(`version ^ 0x544F434B`) to 24-byte records at 0x54900. That key does not
+exist in the container: the "encrypted TOC" was a one-byte misalignment
+caused by the 5-byte magic b"OBPK\\0". See analysis/reports/obpk_format_findings.md.
 
-if not os.path.exists(upak_path):
-    print(f"[!] Erro: Arquivo {upak_path} não encontrado.")
-    exit(1)
+This version no longer invents a key schedule. It parses the plaintext OBPK
+header correctly, validates every structural invariant, and refuses to write
+output if the body layout is not what it expects -- rather than silently
+emitting multi-gigabyte "sizes".
+"""
+from __future__ import annotations
 
-print(f"[*] Analisando a Tabela de Conteúdos (TOC) de: {upak_path}\n")
+import sys
+from pathlib import Path
 
-with open(upak_path, "rb") as f:
-    magic = f.read(4)
-    if magic != b'OBPK':
-        print(f"[!] Erro: Assinatura inválida: {magic}")
-        exit(1)
-        
-    version, num_files, toc_offset = struct.unpack("<III", f.read(12))
-    
-    print(f"[*] Assinatura Validada: OBPK (Vigil Engine Container)")
-    print(f"[*] Versão do Formato : {version}")
-    print(f"[*] Total de Arquivos : {num_files}")
-    print(f"[*] Offset da TOC      : 0x{toc_offset:X} ({toc_offset} bytes)")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from obpk_parser import ObpkError, parse, verify  # noqa: E402
 
-    f.seek(toc_offset)
-    
-    entries = []
-    # Teste de parsing alinhado em entradas de 20/24 bytes
-    for i in range(num_files):
-        entry_bytes = f.read(24)
-        if len(entry_bytes) < 24:
-            break
-            
-        # Unpack de offsets de 32-bit (uint32) para validar offsets relativos
-        hash_lo, hash_hi, offset_32, comp_size, uncomp_size, flags = struct.unpack("<IIIIII", entry_bytes)
-        
-        # Filtra e normaliza offsets válidos dentro do tamanho total do arquivo
-        real_offset = offset_32
-        
-        entries.append({
-            "index": i,
-            "hash": f"0x{hash_hi:08X}{hash_lo:08X}",
-            "offset_raw": offset_32,
-            "offset_hex": f"0x{offset_32:X}",
-            "comp_size": comp_size,
-            "uncomp_size": uncomp_size,
-            "flags": flags
-        })
+UPAK = Path("game_original/media/media.upak")
+REPORT = Path("analysis/reports/upak_toc_decrypted.json")
 
-print(f"[+] Total de entradas processadas: {len(entries)}")
 
-print("\n=== REAMOSTRAGEM DA TOC (ESTRUTURA ALINHADA 32-BIT) ===")
-for entry in entries[:10]:
-    print(f"  - [{entry['index']:4d}] Hash: {entry['hash']} | Offset: {entry['offset_hex']:10} | Tam. Comp: {entry['comp_size']:8d} B | Tam. Orig: {entry['uncomp_size']:8d} B")
+def main() -> int:
+    if not UPAK.exists():
+        print(f"[!] not found: {UPAK}")
+        return 1
 
-report_data = {
-    "package": "media.upak",
-    "version": version,
-    "total_files": len(entries),
-    "toc_offset": toc_offset,
-    "files": entries
-}
+    try:
+        pkg = parse(UPAK)
+    except ObpkError as e:
+        print(f"[!] {UPAK.name}: {e}")
+        print("[!] The body of this build is not the plaintext 2012 index layout.")
+        print("[!] No data written. Do not trust any 'decrypted TOC' produced earlier.")
+        return 2
 
-os.makedirs(os.path.dirname(output_report), exist_ok=True)
-with open(output_report, "w", encoding="utf-8") as out:
-    json.dump(report_data, out, indent=4)
+    problems = verify(pkg)
+    if problems:
+        for p in problems:
+            print(f"[!] invariant failed: {p}")
+        return 3
 
-print(f"\n[+] Relatório atualizado em: {output_report}")
+    print(f"[+] {UPAK.name}: version={pkg.version} names={len(pkg.names)} "
+          f"folders={len(pkg.folders)} files={len(pkg.files)}")
+    print(f"[+] payload at 0x{pkg.data_offset:X}, declared size {pkg.data_size}")
+    print(f"[*] report path reserved: {REPORT}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
