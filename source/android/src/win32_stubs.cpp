@@ -1089,11 +1089,14 @@ using PfnD3D11CreateDeviceAndSwapChain = std::int32_t (*)(
     void *, std::uint32_t, void *, std::uint32_t, const std::int32_t *, std::uint32_t,
     std::uint32_t, const void *, void **, void **, std::int32_t *, void **);
 using PfnCreateDXGIFactory = std::int32_t (*)(const void *, void **);
+// Added by patches/0001-android-external-surface.patch in third_party/dxvk.
+using PfnDxvkSetSurface = void (*)(std::uint64_t);
 
 struct DxvkApi {
     PfnD3D11CreateDevice create_device = nullptr;
     PfnD3D11CreateDeviceAndSwapChain create_device_swapchain = nullptr;
     PfnCreateDXGIFactory create_factory = nullptr;
+    PfnDxvkSetSurface set_surface = nullptr;
 };
 DxvkApi g_dxvk;
 
@@ -1546,7 +1549,22 @@ bool LoadDxvk(const char *library_path) {
         g_dxvk.create_device = create;
         g_dxvk.create_device_swapchain = create_swapchain;
         g_dxvk.create_factory = factory;
+        g_dxvk.set_surface =
+            DxvkSymbol<PfnDxvkSetSurface>(library, "dxvk_android_set_surface");
         g_dxvk_lib = library;
+
+        // Hand the host's surface over. Without the patched DXVK this symbol is
+        // absent and the patched build would fall back to a Win32 surface, which
+        // does not exist here.
+        if (g_dxvk.set_surface != nullptr) {
+            g_dxvk.set_surface(g_vk_surface.load());
+            Log("[win32] DXVK: surface 0x%llx entregue a dxvk_android_set_surface",
+                static_cast<unsigned long long>(g_vk_surface.load()));
+        } else {
+            Log("[win32] DXVK carregado, mas sem dxvk_android_set_surface: "
+                "a surface do host nao sera usada.");
+        }
+
         Log("[win32] DXVK carregado de %s (surface 0x%llx)", path,
             static_cast<unsigned long long>(g_vk_surface.load()));
         return true;
@@ -1559,7 +1577,18 @@ bool IsDxvkLoaded() {
     return g_dxvk_lib != nullptr;
 }
 
-void SetRenderingSurface(std::uint64_t vk_surface) { g_vk_surface.store(vk_surface); }
+void SetRenderingSurface(std::uint64_t vk_surface) {
+    g_vk_surface.store(vk_surface);
+
+    // If DXVK is already loaded, tell it now; if it loads later, LoadDxvk()
+    // pushes the value at that point.
+    PfnDxvkSetSurface setter = nullptr;
+    {
+        std::lock_guard<std::mutex> lock(g_dxvk_mutex);
+        setter = g_dxvk.set_surface;
+    }
+    if (setter != nullptr) setter(vk_surface);
+}
 
 std::uint64_t RenderingSurface() { return g_vk_surface.load(); }
 
