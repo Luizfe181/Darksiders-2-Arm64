@@ -24,6 +24,7 @@ find_library(ANDROID_LIB android)
 set(RUNTIME_SOURCES
     src/main.cpp
     src/platform_bridge.cpp
+    src/win32_stubs.cpp
 )
 
 # Definição da Biblioteca Nativa (.so)

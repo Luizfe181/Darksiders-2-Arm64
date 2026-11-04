@@ -1,6 +1,7 @@
 #include <SDL.h>
 #include "host_runtime.h"
 #include "platform_bridge.h"
+#include "win32_stubs.h"
 
 namespace darksiders2::host {
 
@@ -14,6 +15,13 @@ bool HostRuntime::Initialize(int argc, char* argv[]) {
         LOGE("Falha ao inicializar SDL2: %s", SDL_GetError());
         return false;
     }
+
+    // Camada Win32: liga os imports do executavel aos shims POSIX/Android.
+    // O RcApi do recompilador e ligado depois, quando a biblioteca recompilada
+    // for carregada (win32::SetRecompApi); sem ele, CreateThread roda a thread
+    // mas nao entra em codigo de jogo.
+    win32::RegisterBuiltins();
+    LOGI("Win32 stubs registrados (kernel32/kernelbase).");
 
     LOGI("Subssistema SDL2 inicializado com sucesso.");
     m_state = RuntimeState::kRunning;
@@ -39,6 +47,7 @@ void HostRuntime::RunMainLoop() {
 
 void HostRuntime::Shutdown() {
     LOGI("Encerrando Host Runtime...");
+    win32::Shutdown();  // threads, critical sections, TLS e regioes VirtualAlloc
     SDL_Quit();
     m_state = RuntimeState::kShutdown;
 }
