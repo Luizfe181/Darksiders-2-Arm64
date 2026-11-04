@@ -23,6 +23,7 @@
 #include <vector>
 
 #include <dirent.h>
+#include <dlfcn.h>
 #include <fcntl.h>
 #include <pthread.h>
 #include <sys/mman.h>
@@ -71,7 +72,26 @@ inline std::uint64_t Arg5(CpuContext *c) {
 inline std::uint64_t Arg6(CpuContext *c) {
     return recomp::GuestLoad<std::uint64_t>(c->r[recomp::RSP] + 0x38);
 }
+inline std::uint64_t Arg7(CpuContext *c) {
+    return recomp::GuestLoad<std::uint64_t>(c->r[recomp::RSP] + 0x40);
+}
+inline std::uint64_t Arg8(CpuContext *c) {
+    return recomp::GuestLoad<std::uint64_t>(c->r[recomp::RSP] + 0x48);
+}
+inline std::uint64_t Arg9(CpuContext *c) {
+    return recomp::GuestLoad<std::uint64_t>(c->r[recomp::RSP] + 0x50);
+}
+inline std::uint64_t Arg10(CpuContext *c) {
+    return recomp::GuestLoad<std::uint64_t>(c->r[recomp::RSP] + 0x58);
+}
+inline std::uint64_t Arg11(CpuContext *c) {
+    return recomp::GuestLoad<std::uint64_t>(c->r[recomp::RSP] + 0x60);
+}
 inline void SetRet(CpuContext *c, std::uint64_t v) { c->r[recomp::RAX] = v; }
+// HRESULT is 32 bits; the guest reads EAX, so sign-extend for clarity.
+inline void SetRet32(CpuContext *c, std::int32_t v) {
+    c->r[recomp::RAX] = static_cast<std::uint64_t>(static_cast<std::int64_t>(v));
+}
 
 // ---------------------------------------------------------------------------
 // Registry
@@ -1044,6 +1064,94 @@ std::uint32_t Impl_SetEndOfFile(std::uint64_t handle) {
 }
 
 // ---------------------------------------------------------------------------
+// D3D11 / DXGI -- forwarded to DXVK 1.10.3
+//
+// DXVK is not vendored here: it is a large C++ project with its own build. Its
+// d3d11 entry points are looked up in libdxvk_d3d11.so at run time, so a build
+// of it can be dropped in without relinking this library. With nothing loaded
+// the calls fail with E_FAIL -- what the engine already handles -- instead of
+// crashing.
+//
+// Argument widths: the guest is Win64, so a 32-bit argument arrives in the low
+// half of a 64-bit register. Declaring the forwards with std::uint32_t/uint64_t
+// keeps the register layout identical; HRESULT is modelled as int32_t because
+// Windows' long is 32-bit while Android's is not.
+// ---------------------------------------------------------------------------
+std::mutex g_dxvk_mutex;
+void *g_dxvk_lib = nullptr;
+std::atomic<std::uint64_t> g_vk_surface{0};
+std::atomic<bool> g_dxvk_missing_logged{false};
+
+using PfnD3D11CreateDevice = std::int32_t (*)(void *, std::uint32_t, void *, std::uint32_t,
+                                              const std::int32_t *, std::uint32_t, std::uint32_t,
+                                              void **, std::int32_t *, void **);
+using PfnD3D11CreateDeviceAndSwapChain = std::int32_t (*)(
+    void *, std::uint32_t, void *, std::uint32_t, const std::int32_t *, std::uint32_t,
+    std::uint32_t, const void *, void **, void **, std::int32_t *, void **);
+using PfnCreateDXGIFactory = std::int32_t (*)(const void *, void **);
+
+struct DxvkApi {
+    PfnD3D11CreateDevice create_device = nullptr;
+    PfnD3D11CreateDeviceAndSwapChain create_device_swapchain = nullptr;
+    PfnCreateDXGIFactory create_factory = nullptr;
+};
+DxvkApi g_dxvk;
+
+void LogDxvkMissing() {
+    bool expected = false;
+    if (g_dxvk_missing_logged.compare_exchange_strong(expected, true)) {
+        Log("[win32] D3D11/DXGI chamado sem DXVK: a devolver E_FAIL. "
+            "Coloque libdxvk_d3d11.so ou defina D2_DXVK.");
+    }
+}
+
+template <typename T>
+inline T *GuestPtr(std::uint64_t value) {
+    return reinterpret_cast<T *>(static_cast<std::uintptr_t>(value));
+}
+
+std::int32_t Impl_D3D11CreateDevice(std::uint64_t adapter, std::uint32_t driver_type,
+                                    std::uint64_t software, std::uint32_t flags,
+                                    std::uint64_t feature_levels, std::uint32_t num_levels,
+                                    std::uint32_t sdk_version, std::uint64_t device_out,
+                                    std::uint64_t feature_level_out, std::uint64_t context_out) {
+    if (g_dxvk.create_device == nullptr) {
+        LogDxvkMissing();
+        return kD3dErrFail;
+    }
+    return g_dxvk.create_device(
+        GuestPtr<void>(adapter), driver_type, GuestPtr<void>(software), flags,
+        GuestPtr<const std::int32_t>(feature_levels), num_levels, sdk_version,
+        GuestPtr<void *>(device_out), GuestPtr<std::int32_t>(feature_level_out),
+        GuestPtr<void *>(context_out));
+}
+
+std::int32_t Impl_D3D11CreateDeviceAndSwapChain(
+    std::uint64_t adapter, std::uint32_t driver_type, std::uint64_t software, std::uint32_t flags,
+    std::uint64_t feature_levels, std::uint32_t num_levels, std::uint32_t sdk_version,
+    std::uint64_t swapchain_desc, std::uint64_t swapchain_out, std::uint64_t device_out,
+    std::uint64_t feature_level_out, std::uint64_t context_out) {
+    if (g_dxvk.create_device_swapchain == nullptr) {
+        LogDxvkMissing();
+        return kD3dErrFail;
+    }
+    return g_dxvk.create_device_swapchain(
+        GuestPtr<void>(adapter), driver_type, GuestPtr<void>(software), flags,
+        GuestPtr<const std::int32_t>(feature_levels), num_levels, sdk_version,
+        GuestPtr<const void>(swapchain_desc), GuestPtr<void *>(swapchain_out),
+        GuestPtr<void *>(device_out), GuestPtr<std::int32_t>(feature_level_out),
+        GuestPtr<void *>(context_out));
+}
+
+std::int32_t Impl_CreateDXGIFactory(std::uint64_t riid, std::uint64_t factory_out) {
+    if (g_dxvk.create_factory == nullptr) {
+        LogDxvkMissing();
+        return kD3dErrFail;
+    }
+    return g_dxvk.create_factory(GuestPtr<const void>(riid), GuestPtr<void *>(factory_out));
+}
+
+// ---------------------------------------------------------------------------
 // Critical sections (recursive, like Windows). Keyed by the guest's address so
 // we never depend on sizeof(CRITICAL_SECTION) (40 bytes on Win64).
 // ---------------------------------------------------------------------------
@@ -1332,6 +1440,25 @@ void Stub_DeleteFileW(CpuContext *c) {
 }
 void Stub_SetEndOfFile(CpuContext *c) { SetRet(c, Impl_SetEndOfFile(Arg0(c))); }
 
+// ---- D3D11 / DXGI ----
+void Stub_D3D11CreateDevice(CpuContext *c) {
+    SetRet32(c, Impl_D3D11CreateDevice(
+                    Arg0(c), static_cast<std::uint32_t>(Arg1(c)), Arg2(c),
+                    static_cast<std::uint32_t>(Arg3(c)), Arg4(c),
+                    static_cast<std::uint32_t>(Arg5(c)), static_cast<std::uint32_t>(Arg6(c)),
+                    Arg7(c), Arg8(c), Arg9(c)));
+}
+void Stub_D3D11CreateDeviceAndSwapChain(CpuContext *c) {
+    SetRet32(c, Impl_D3D11CreateDeviceAndSwapChain(
+                    Arg0(c), static_cast<std::uint32_t>(Arg1(c)), Arg2(c),
+                    static_cast<std::uint32_t>(Arg3(c)), Arg4(c),
+                    static_cast<std::uint32_t>(Arg5(c)), static_cast<std::uint32_t>(Arg6(c)),
+                    Arg7(c), Arg8(c), Arg9(c), Arg10(c), Arg11(c)));
+}
+void Stub_CreateDXGIFactory(CpuContext *c) {
+    SetRet32(c, Impl_CreateDXGIFactory(Arg0(c), Arg1(c)));
+}
+
 }  // namespace
 
 // ---------------------------------------------------------------------------
@@ -1370,6 +1497,71 @@ void SetDataRoot(const char *root) {
 }
 
 std::string GetDataRoot() { return EffectiveRoot(); }
+
+// ---------------------------------------------------------------------------
+// D3D11 / DXGI loading and the rendering surface handoff
+// ---------------------------------------------------------------------------
+namespace {
+
+template <typename Fn>
+Fn DxvkSymbol(void *library, const char *name) {
+    void *symbol = ::dlsym(library, name);
+    Fn fn = nullptr;
+    if (symbol != nullptr) std::memcpy(&fn, &symbol, sizeof(fn));
+    return fn;
+}
+
+}  // namespace
+
+bool LoadDxvk(const char *library_path) {
+    std::lock_guard<std::mutex> lock(g_dxvk_mutex);
+    if (g_dxvk_lib != nullptr) return true;
+
+    std::vector<const char *> candidates;
+    if (library_path != nullptr && library_path[0] != '\0') candidates.push_back(library_path);
+    if (const char *env = std::getenv("D2_DXVK")) {
+        if (env[0] != '\0') candidates.push_back(env);
+    }
+#ifdef D2_DXVK_D3D11_SO
+    candidates.push_back(D2_DXVK_D3D11_SO);
+#endif
+    candidates.push_back("libdxvk_d3d11.so");
+    candidates.push_back("/data/data/com.vigil.darksiders2/files/libdxvk_d3d11.so");
+
+    for (const char *path : candidates) {
+        void *library = ::dlopen(path, RTLD_NOW | RTLD_LOCAL);
+        if (library == nullptr) continue;
+
+        auto create = DxvkSymbol<PfnD3D11CreateDevice>(library, "D3D11CreateDevice");
+        auto create_swapchain =
+            DxvkSymbol<PfnD3D11CreateDeviceAndSwapChain>(library,
+                                                         "D3D11CreateDeviceAndSwapChain");
+        auto factory = DxvkSymbol<PfnCreateDXGIFactory>(library, "CreateDXGIFactory");
+        if (create == nullptr && create_swapchain == nullptr && factory == nullptr) {
+            Log("[win32] %s nao expoe D3D11CreateDevice/CreateDXGIFactory; ignorado.", path);
+            ::dlclose(library);
+            continue;
+        }
+
+        g_dxvk.create_device = create;
+        g_dxvk.create_device_swapchain = create_swapchain;
+        g_dxvk.create_factory = factory;
+        g_dxvk_lib = library;
+        Log("[win32] DXVK carregado de %s (surface 0x%llx)", path,
+            static_cast<unsigned long long>(g_vk_surface.load()));
+        return true;
+    }
+    return false;
+}
+
+bool IsDxvkLoaded() {
+    std::lock_guard<std::mutex> lock(g_dxvk_mutex);
+    return g_dxvk_lib != nullptr;
+}
+
+void SetRenderingSurface(std::uint64_t vk_surface) { g_vk_surface.store(vk_surface); }
+
+std::uint64_t RenderingSurface() { return g_vk_surface.load(); }
 
 bool HasModule(const char *module) {
     std::lock_guard<std::mutex> lock(g_registry_mutex);
@@ -1443,6 +1635,10 @@ void RegisterBuiltins() {
             {"kernel32.dll", "DeleteFileA", Stub_DeleteFileA},
             {"kernel32.dll", "DeleteFileW", Stub_DeleteFileW},
             {"kernel32.dll", "SetEndOfFile", Stub_SetEndOfFile},
+            {"d3d11.dll", "D3D11CreateDevice", Stub_D3D11CreateDevice},
+            {"d3d11.dll", "D3D11CreateDeviceAndSwapChain", Stub_D3D11CreateDeviceAndSwapChain},
+            {"dxgi.dll", "CreateDXGIFactory", Stub_CreateDXGIFactory},
+            {"dxgi.dll", "CreateDXGIFactory1", Stub_CreateDXGIFactory},
         };
         for (const Entry &e : kEntries) {
             AddStub(e.module, e.name, e.fn);

@@ -45,6 +45,8 @@ endif()
 
 find_library(LOG_LIB log)
 find_library(ANDROID_LIB android)
+find_library(VULKAN_LIB vulkan)
+find_library(DL_LIB dl)
 
 # Fontes do Host Runtime
 set(RUNTIME_SOURCES
@@ -70,6 +72,29 @@ endif()
 
 if(ANDROID_LIB)
     target_link_libraries(darksiders2_runtime PRIVATE ${ANDROID_LIB})
+endif()
+
+# Vulkan: o SDL cria a VkInstance e a VkSurfaceKHR do jogo.
+if(VULKAN_LIB)
+    target_link_libraries(darksiders2_runtime PRIVATE ${VULKAN_LIB})
+else()
+    message(WARNING "libvulkan nao encontrada: a surface Vulkan nao vai ligar.")
+endif()
+
+# dlopen: o DXVK e carregado em run time.
+if(DL_LIB)
+    target_link_libraries(darksiders2_runtime PRIVATE ${DL_LIB})
+endif()
+
+# DXVK 1.10.3 e opcional. Se houver um build em third_party/dxvk, passa-se o
+# caminho ao loader (win32::LoadDxvk); caso contrario procura-se em run time.
+set(D2_DXVK_SO "${CMAKE_CURRENT_SOURCE_DIR}/third_party/dxvk/libdxvk_d3d11.so")
+if(EXISTS "${D2_DXVK_SO}")
+    target_compile_definitions(darksiders2_runtime
+        PRIVATE D2_DXVK_D3D11_SO="${D2_DXVK_SO}")
+    message(STATUS "DXVK: ${D2_DXVK_SO}")
+else()
+    message(STATUS "DXVK: nao vendorizado (procurado em run time: D2_DXVK / libdxvk_d3d11.so)")
 endif()
 
 target_link_libraries(darksiders2_runtime PRIVATE m)

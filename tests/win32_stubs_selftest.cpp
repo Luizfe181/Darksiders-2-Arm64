@@ -507,6 +507,44 @@ int main() {
     Call(K32, "DeleteFileA");
     CHECK(Ret() == 0, "DeleteFileA on a missing file returns 0");
 
+    std::printf("\n== D3D11 / DXGI entry points ==\n");
+    {
+        const std::uint64_t device_thunk = win32::ResolveImport("d3d11.dll", "D3D11CreateDevice");
+        CHECK(device_thunk != 0 && win32::IsThunk(device_thunk),
+              "D3D11CreateDevice resolves to a thunk");
+        CHECK(win32::ResolveImport("d3d11.dll", "D3D11CreateDeviceAndSwapChain") != 0,
+              "D3D11CreateDeviceAndSwapChain resolves to a thunk");
+        CHECK(win32::ResolveImport("dxgi.dll", "CreateDXGIFactory") != 0,
+              "CreateDXGIFactory resolves to a thunk");
+        CHECK(win32::ResolveImport("dxgi.dll", "CreateDXGIFactory1") != 0,
+              "CreateDXGIFactory1 shares the CreateDXGIFactory stub");
+        CHECK(!win32::IsDxvkLoaded(), "no DXVK is loaded in this test");
+
+        // With no DXVK the call must fail cleanly, not crash: 10 arguments,
+        // the last six on the guest stack.
+        Reset(0, 1, 0, 0);
+        SetStackArg(0, 0);
+        SetStackArg(1, 0);
+        SetStackArg(2, 7);
+        SetStackArg(3, 0);
+        SetStackArg(4, 0);
+        SetStackArg(5, 0);
+        CHECK(Call("d3d11.dll", "D3D11CreateDevice"), "D3D11CreateDevice dispatched");
+        CHECK(static_cast<std::int32_t>(Ret()) == win32::kD3dErrFail,
+              "D3D11CreateDevice returns E_FAIL without DXVK");
+
+        Reset(0, 0);
+        CHECK(Call("dxgi.dll", "CreateDXGIFactory"), "CreateDXGIFactory dispatched");
+        CHECK(static_cast<std::int32_t>(Ret()) == win32::kD3dErrFail,
+              "CreateDXGIFactory returns E_FAIL without DXVK");
+
+        win32::SetRenderingSurface(0x1234ABCDull);
+        CHECK(win32::RenderingSurface() == 0x1234ABCDull,
+              "the Vulkan surface reaches the Win32 layer");
+        win32::SetRenderingSurface(0);
+        CHECK(win32::RenderingSurface() == 0, "the surface handoff clears on shutdown");
+    }
+
     ::unlink(kRel);
     ::unlink("d2_test_sub/d2_write.bin");
     ::unlink("d2_test_sub/d2_map.bin");

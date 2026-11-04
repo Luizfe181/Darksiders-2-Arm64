@@ -1,4 +1,5 @@
 #include <SDL.h>
+#include <SDL_vulkan.h>
 
 #include <cctype>
 #include <cstdio>
@@ -7,9 +8,11 @@
 #include <vector>
 
 #include <sys/stat.h>
+#include <vulkan/vulkan.h>
 
 #include "host_runtime.h"
 #include "platform_bridge.h"
+#include "render_context.h"
 #include "win32_stubs.h"
 
 namespace darksiders2::host {
@@ -112,6 +115,15 @@ std::string AndroidExternalPath() {
 #endif
 }
 
+// VkSurfaceKHR is a pointer on some header configurations and a uint64_t on
+// others, so convert through memory instead of assuming either.
+std::uint64_t HandleToInteger(VkSurfaceKHR handle) {
+    static_assert(sizeof(std::uint64_t) >= sizeof(handle), "handle does not fit");
+    std::uint64_t value = 0;
+    std::memcpy(&value, &handle, sizeof(handle));
+    return value;
+}
+
 }  // namespace
 
 bool HostRuntime::InitDataRoot() {
@@ -194,6 +206,83 @@ bool HostRuntime::CreateWindow() {
     return true;
 }
 
+bool HostRuntime::CreateVulkanContext() {
+    // 1. Ask SDL which instance extensions its surface needs (surface + the
+    //    platform one). This is what makes the window usable as a surface.
+    unsigned extension_count = 0;
+    if (SDL_Vulkan_GetInstanceExtensions(m_window, &extension_count, nullptr) != SDL_TRUE) {
+        LOGE("SDL_Vulkan_GetInstanceExtensions(count) falhou: %s", SDL_GetError());
+        return false;
+    }
+    std::vector<const char *> extensions(extension_count);
+    if (SDL_Vulkan_GetInstanceExtensions(m_window, &extension_count, extensions.data()) !=
+        SDL_TRUE) {
+        LOGE("SDL_Vulkan_GetInstanceExtensions(list) falhou: %s", SDL_GetError());
+        return false;
+    }
+
+    VkApplicationInfo app_info{};
+    app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+    app_info.pApplicationName = kWindowTitle;
+    app_info.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
+    app_info.pEngineName = "Vigil Engine";
+    app_info.engineVersion = VK_MAKE_VERSION(1, 0, 0);
+    app_info.apiVersion = VK_API_VERSION_1_1;
+
+    VkInstanceCreateInfo create_info{};
+    create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+    create_info.pApplicationInfo = &app_info;
+    create_info.enabledExtensionCount = extension_count;
+    create_info.ppEnabledExtensionNames = extensions.data();
+
+    VkResult result = vkCreateInstance(&create_info, nullptr, &m_instance);
+    if (result != VK_SUCCESS) {
+        LOGE("vkCreateInstance falhou: %d", static_cast<int>(result));
+        m_instance = VK_NULL_HANDLE;
+        return false;
+    }
+
+    // 2. The native surface. DXVK needs this instead of an HWND.
+    if (SDL_Vulkan_CreateSurface(m_window, m_instance, &m_surface) != SDL_TRUE) {
+        LOGE("SDL_Vulkan_CreateSurface falhou: %s", SDL_GetError());
+        vkDestroyInstance(m_instance, nullptr);
+        m_instance = VK_NULL_HANDLE;
+        return false;
+    }
+
+    // 3. Diagnostics: an instance that cannot see a device will fail at the
+    //    first real draw, so report it now rather than later.
+    std::uint32_t device_count = 0;
+    vkEnumeratePhysicalDevices(m_instance, &device_count, nullptr);
+    LOGI("Vulkan: %u extensao(oes), %u dispositivo(s)", extension_count, device_count);
+    if (device_count > 0) {
+        VkPhysicalDevice devices[8] = {};
+        std::uint32_t count = device_count < 8 ? device_count : 8;
+        if (vkEnumeratePhysicalDevices(m_instance, &count, devices) == VK_SUCCESS && count > 0) {
+            VkPhysicalDeviceProperties props{};
+            vkGetPhysicalDeviceProperties(devices[0], &props);
+            LOGI("Vulkan: GPU 0 = %s (API %u.%u.%u)", props.deviceName,
+                 VK_VERSION_MAJOR(props.apiVersion), VK_VERSION_MINOR(props.apiVersion),
+                 VK_VERSION_PATCH(props.apiVersion));
+        }
+    }
+
+    int width = 0;
+    int height = 0;
+    SDL_GetWindowSize(m_window, &width, &height);
+    render::Context context;
+    context.instance = m_instance;
+    context.surface = m_surface;
+    context.width = static_cast<std::uint32_t>(width);
+    context.height = static_cast<std::uint32_t>(height);
+    render::SetContext(context);
+
+    // Publish it to the Win32 layer too: the D3D11/DXGI shims hand it to DXVK.
+    win32::SetRenderingSurface(HandleToInteger(m_surface));
+    LOGI("Vulkan: surface conectada ao runtime (%dx%d)", width, height);
+    return true;
+}
+
 bool HostRuntime::Initialize(int argc, char* argv[]) {
     (void)argc;
     (void)argv;
@@ -225,6 +314,20 @@ bool HostRuntime::Initialize(int argc, char* argv[]) {
         return false;
     }
 
+    if (!CreateVulkanContext()) {
+        LOGE("Vulkan indisponivel: nao ha como apresentar o renderizador.");
+        SDL_DestroyWindow(m_window);
+        m_window = nullptr;
+        SDL_Quit();
+        return false;
+    }
+
+    // DXVK e opcional: sem ele os entry points D3D11 falham de forma limpa em
+    // vez de crashar, e o log diz o que falta.
+    if (!win32::LoadDxvk()) {
+        LOGE("DXVK 1.10.3 nao encontrado (libdxvk_d3d11.so); D3D11/DXGI indisponiveis.");
+    }
+
     m_state = RuntimeState::kRunning;
     return true;
 }
@@ -250,6 +353,19 @@ void HostRuntime::RunMainLoop() {
 
 void HostRuntime::Shutdown() {
     LOGI("Encerrando Host Runtime...");
+
+    // Vulkan objects first: the surface is tied to the window.
+    render::SetContext(render::Context{});
+    win32::SetRenderingSurface(0);
+    if (m_surface != VK_NULL_HANDLE && m_instance != VK_NULL_HANDLE) {
+        vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
+    }
+    m_surface = VK_NULL_HANDLE;
+    if (m_instance != VK_NULL_HANDLE) {
+        vkDestroyInstance(m_instance, nullptr);
+    }
+    m_instance = VK_NULL_HANDLE;
+
     if (m_window != nullptr) {
         SDL_DestroyWindow(m_window);
         m_window = nullptr;
