@@ -459,7 +459,7 @@ L_420531: ;
     { std::memset(&v[2], 0, 16); v[2].f[0] = GuestLoad<float>(r[4] + 0x48ull); }
     { v[2].f[0] = v[2].f[0] * v[2].f[0]; }
     { v[0].f[0] = v[0].f[0] + v[2].f[0]; }
-    { RC_SAVE(); rc->call(c, B + 0x11067e6ull, B + 0x420801ull); RC_LOAD(); }
+    { extern RcFn d_11067e6; RC_SAVE(); if (d_11067e6) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x420801ull); c->rip = B + 0x11067e6ull; d_11067e6(c); } else rc->call(c, B + 0x11067e6ull, B + 0x420801ull); RC_LOAD(); }
     { std::memcpy(&v[6], &v[0], 16); }
     GuestStore<float>(r[6] + 0x1d4ull, v[6].f[0]);
     r[1] = r[4] + 0x40ull;
@@ -551,27 +551,27 @@ L_42097e: ;
     { extern RcFn d_9c418c; RC_SAVE(); if (d_9c418c) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x420983ull); c->rip = B + 0x9c418cull; d_9c418c(c); } else rc->call(c, B + 0x9c418cull, B + 0x420983ull); RC_LOAD(); }
     { std::memcpy(&v[6], &v[0], 16); }
     r[1] = r[15];
-    { RC_SAVE(); rc->call(c, B + 0x38e664ull, B + 0x42098eull); RC_LOAD(); }
+    { extern RcFn d_38e664; RC_SAVE(); if (d_38e664) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42098eull); c->rip = B + 0x38e664ull; d_38e664(c); } else rc->call(c, B + 0x38e664ull, B + 0x42098eull); RC_LOAD(); }
     { v[0].f[0] = v[0].f[0] * v[9].f[0]; }
     { std::memcpy(&v[2], &v[0], 16); }
     { std::memcpy(&v[1], &v[6], 16); }
     r[1] = r[5] + 0x108ull;
     { extern RcFn d_718088; RC_SAVE(); if (d_718088) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x4209a5ull); c->rip = B + 0x718088ull; d_718088(c); } else rc->call(c, B + 0x718088ull, B + 0x4209a5ull); RC_LOAD(); }
     r[1] = r[15];
-    { RC_SAVE(); rc->call(c, B + 0x38e59cull, B + 0x4209adull); RC_LOAD(); }
+    { extern RcFn d_38e59c; RC_SAVE(); if (d_38e59c) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x4209adull); c->rip = B + 0x38e59cull; d_38e59c(c); } else rc->call(c, B + 0x38e59cull, B + 0x4209adull); RC_LOAD(); }
     { std::memcpy(&v[7], &v[0], 16); }
     { v[7].f[0] = v[7].f[0] * v[9].f[0]; }
     r[1] = r[15];
-    { RC_SAVE(); rc->call(c, B + 0x38e538ull, B + 0x4209bdull); RC_LOAD(); }
+    { extern RcFn d_38e538; RC_SAVE(); if (d_38e538) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x4209bdull); c->rip = B + 0x38e538ull; d_38e538(c); } else rc->call(c, B + 0x38e538ull, B + 0x4209bdull); RC_LOAD(); }
     { std::memcpy(&v[6], &v[0], 16); }
     { v[6].f[0] = v[6].f[0] * v[9].f[0]; }
     r[1] = r[15];
-    { RC_SAVE(); rc->call(c, B + 0x351a30ull, B + 0x4209cdull); RC_LOAD(); }
+    { extern RcFn d_351a30; RC_SAVE(); if (d_351a30) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x4209cdull); c->rip = B + 0x351a30ull; d_351a30(c); } else rc->call(c, B + 0x351a30ull, B + 0x4209cdull); RC_LOAD(); }
     { std::memcpy(&v[1], &v[0], 16); }
     { std::memcpy(&v[3], &v[7], 16); }
     { std::memcpy(&v[2], &v[6], 16); }
     r[1] = r[5] + 0x118ull;
-    { RC_SAVE(); rc->call(c, B + 0x7181d8ull, B + 0x4209e2ull); RC_LOAD(); }
+    { extern RcFn d_7181d8; RC_SAVE(); if (d_7181d8) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x4209e2ull); c->rip = B + 0x7181d8ull; d_7181d8(c); } else rc->call(c, B + 0x7181d8ull, B + 0x4209e2ull); RC_LOAD(); }
     r[0] = GuestLoad<uint64_t>(r[6] + 0x18ull);
     { std::memset(&v[7], 0, 16); v[7].f[0] = GuestLoad<float>(r[5] + 0x118ull); }
     GuestStore<float>(r[0] + 0x304ull, v[7].f[0]);
@@ -700,7 +700,7 @@ __attribute__((visibility("hidden"))) void f_420bc8(CpuContext *c) {
     { c->flags = ArithFlags(c->flags, 2, (r[3] & 0xffffffffull), (r[3] & 0xffffffffull), ((r[3] & 0xffffffffull) ^ (r[3] & 0xffffffffull)), 4); r[3] = (uint32_t)(((r[3] & 0xffffffffull) ^ (r[3] & 0xffffffffull))); }
     GuestStore<uint32_t>(r[5] + (uint64_t)(-0x29), (r[3] & 0xffffffffull));
     r[1] = r[2];
-    { RC_SAVE(); rc->call(c, B + 0xa42b0ull, B + 0x420c13ull); RC_LOAD(); }
+    { extern RcFn d_a42b0; RC_SAVE(); if (d_a42b0) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x420c13ull); c->rip = B + 0xa42b0ull; d_a42b0(c); } else rc->call(c, B + 0xa42b0ull, B + 0x420c13ull); RC_LOAD(); }
     GuestStore<uint32_t>(r[5] + (uint64_t)(-0x29), 0x1ull);
     { c->flags = ArithFlags(c->flags, 1, GuestLoad<uint64_t>(r[14] + 0x10ull), r[3], (GuestLoad<uint64_t>(r[14] + 0x10ull) - r[3]), 8); }
     if (Cond(0x4, c->flags)) goto L_420cdd;
@@ -1495,7 +1495,7 @@ __attribute__((visibility("hidden"))) void f_421784(CpuContext *c) {
     { c->flags = ArithFlags(c->flags, 2, (r[3] & 0xffffffffull), (r[3] & 0xffffffffull), ((r[3] & 0xffffffffull) ^ (r[3] & 0xffffffffull)), 4); r[3] = (uint32_t)(((r[3] & 0xffffffffull) ^ (r[3] & 0xffffffffull))); }
     GuestStore<uint32_t>(r[5] + (uint64_t)(-0x29), (r[3] & 0xffffffffull));
     r[1] = r[2];
-    { RC_SAVE(); rc->call(c, B + 0xa42b0ull, B + 0x4217caull); RC_LOAD(); }
+    { extern RcFn d_a42b0; RC_SAVE(); if (d_a42b0) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x4217caull); c->rip = B + 0xa42b0ull; d_a42b0(c); } else rc->call(c, B + 0xa42b0ull, B + 0x4217caull); RC_LOAD(); }
     GuestStore<uint32_t>(r[5] + (uint64_t)(-0x29), 0x1ull);
     { c->flags = ArithFlags(c->flags, 1, GuestLoad<uint64_t>(r[7] + 0x10ull), r[3], (GuestLoad<uint64_t>(r[7] + 0x10ull) - r[3]), 8); }
     if (Cond(0x4, c->flags)) goto L_4218c4;
@@ -1772,7 +1772,7 @@ L_421b41: ;
     r[2] = r[4] + 0x40ull;
     r[1] = GuestLoad<uint64_t>(r[0] + 0x58ull);
     { c->flags = ArithFlags(c->flags, 0, r[1], 0x170ull, (r[1] + 0x170ull), 8); r[1] = (r[1] + 0x170ull); }
-    { RC_SAVE(); rc->call(c, B + 0xe3854ull, B + 0x421b61ull); RC_LOAD(); }
+    { extern RcFn d_e3854; RC_SAVE(); if (d_e3854) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x421b61ull); c->rip = B + 0xe3854ull; d_e3854(c); } else rc->call(c, B + 0xe3854ull, B + 0x421b61ull); RC_LOAD(); }
     r[1] = GuestLoad<uint64_t>(r[4] + 0x40ull);
     { c->flags = ArithFlags(c->flags, 2, r[1], r[1], (r[1] & r[1]), 8); }
     if (Cond(0x4, c->flags)) goto L_421b82;
@@ -1881,7 +1881,7 @@ L_421c56: ;
     { v[0].f[0] = v[0].f[0] * v[0].f[0]; }
     { v[1].f[0] = v[1].f[0] * v[1].f[0]; }
     { v[0].f[0] = v[0].f[0] + v[1].f[0]; }
-    { RC_SAVE(); rc->call(c, B + 0x11067e6ull, B + 0x421d02ull); RC_LOAD(); }
+    { extern RcFn d_11067e6; RC_SAVE(); if (d_11067e6) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x421d02ull); c->rip = B + 0x11067e6ull; d_11067e6(c); } else rc->call(c, B + 0x11067e6ull, B + 0x421d02ull); RC_LOAD(); }
     { std::memcpy(&v[1], &v[13], 16); }
     { v[1].f[0] = v[1].f[0] - v[0].f[0]; }
     { const float lhs = v[6].f[0]; const float rhs = v[1].f[0]; c->flags &= ~(uint64_t)F_ARITH; if (std::isunordered(lhs, rhs)) c->flags |= F_CF | F_PF | F_ZF; else if (lhs < rhs) c->flags |= F_CF; else if (lhs == rhs) c->flags |= F_ZF; }
@@ -2113,7 +2113,7 @@ L_421fef: ;
     GuestStore<uint64_t>(r[5] + (uint64_t)(-0x28), r[0]);
     { extern RcFn d_18001c; RC_SAVE(); if (d_18001c) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42206cull); c->rip = B + 0x18001cull; d_18001c(c); } else rc->call(c, B + 0x18001cull, B + 0x42206cull); RC_LOAD(); }
     r[1] = r[6];
-    { RC_SAVE(); rc->call(c, B + 0x38e664ull, B + 0x422074ull); RC_LOAD(); }
+    { extern RcFn d_38e664; RC_SAVE(); if (d_38e664) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x422074ull); c->rip = B + 0x38e664ull; d_38e664(c); } else rc->call(c, B + 0x38e664ull, B + 0x422074ull); RC_LOAD(); }
     r[1] = r[5] + (uint64_t)(-0x30);
     { std::memcpy(&v[6], &v[0], 16); }
     { v[6].f[0] = v[6].f[0] * v[7].f[0]; }
@@ -2203,7 +2203,7 @@ __attribute__((visibility("hidden"))) void f_42216c(CpuContext *c) {
     { c->flags = ArithFlags(c->flags, 2, (r[3] & 0xffull), 0x1ull, ((r[3] & 0xffull) & 0x1ull), 1); }
     if (Cond(0x4, c->flags)) goto L_4221ab;
     r[1] = r[7];
-    { RC_SAVE(); rc->call(c, B + 0x9ae58ull, B + 0x4221abull); RC_LOAD(); }
+    { extern RcFn d_9ae58; RC_SAVE(); if (d_9ae58) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x4221abull); c->rip = B + 0x9ae58ull; d_9ae58(c); } else rc->call(c, B + 0x9ae58ull, B + 0x4221abull); RC_LOAD(); }
 L_4221ab: ;
     r[0] = r[7];
     r[3] = GuestLoad<uint64_t>(r[4] + 0x48ull);
@@ -2340,7 +2340,7 @@ L_4222e9: ;
     { const uint64_t t = GuestLoad<uint64_t>(r[0] + 0x268ull); RC_SAVE(); rc->call(c, t, B + 0x42237dull); RC_LOAD(); }
     { std::memcpy(&v[1], &v[0], 16); }
     { std::memcpy(&v[0], &v[7], 16); }
-    { RC_SAVE(); rc->call(c, B + 0x9c46e8ull, B + 0x422388ull); RC_LOAD(); }
+    { extern RcFn d_9c46e8; RC_SAVE(); if (d_9c46e8) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x422388ull); c->rip = B + 0x9c46e8ull; d_9c46e8(c); } else rc->call(c, B + 0x9c46e8ull, B + 0x422388ull); RC_LOAD(); }
     { std::memset(&v[11], 0, 16); v[11].f[0] = GuestLoad<float>((uint64_t)(B + 0x16b5430ull)); }
     { const float lhs = v[6].f[0]; const float rhs = v[0].f[0]; c->flags &= ~(uint64_t)F_ARITH; if (std::isunordered(lhs, rhs)) c->flags |= F_CF | F_PF | F_ZF; else if (lhs < rhs) c->flags |= F_CF; else if (lhs == rhs) c->flags |= F_ZF; }
     if (Cond(0x6, c->flags)) goto L_42239a;
@@ -2351,7 +2351,7 @@ L_42239a: ;
     { v[7].f[0] = v[7].f[0] + GuestLoad<float>((uint64_t)(B + 0x16b4ca0ull)); }
 L_4223ab: ;
     { std::memcpy(&v[0], &v[7], 16); }
-    { RC_SAVE(); rc->call(c, B + 0x9c4690ull, B + 0x4223b3ull); RC_LOAD(); }
+    { extern RcFn d_9c4690; RC_SAVE(); if (d_9c4690) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x4223b3ull); c->rip = B + 0x9c4690ull; d_9c4690(c); } else rc->call(c, B + 0x9c4690ull, B + 0x4223b3ull); RC_LOAD(); }
     { std::memcpy(&v[1], &v[0], 16); }
     { std::memset(&v[2], 0, 16); v[2].f[0] = GuestLoad<float>((uint64_t)(B + 0x16b4460ull)); }
     r[1] = r[5];
@@ -2397,10 +2397,10 @@ L_4223ab: ;
     { c->flags = ArithFlags(c->flags, 2, GuestLoad<uint32_t>(r[5] + (uint64_t)(-0x6c)), 0x0ull, (GuestLoad<uint32_t>(r[5] + (uint64_t)(-0x6c)) & 0x0ull), 4); GuestStore<uint32_t>(r[5] + (uint64_t)(-0x6c), (GuestLoad<uint32_t>(r[5] + (uint64_t)(-0x6c)) & 0x0ull)); }
     { c->flags = ArithFlags(c->flags, 2, GuestLoad<uint32_t>(r[5] + (uint64_t)(-0x70)), 0x0ull, (GuestLoad<uint32_t>(r[5] + (uint64_t)(-0x70)) & 0x0ull), 4); GuestStore<uint32_t>(r[5] + (uint64_t)(-0x70), (GuestLoad<uint32_t>(r[5] + (uint64_t)(-0x70)) & 0x0ull)); }
     { std::memcpy(&v[0], &v[9], 16); }
-    { RC_SAVE(); rc->call(c, B + 0xd7f128ull, B + 0x4224a2ull); RC_LOAD(); }
+    { extern RcFn d_d7f128; RC_SAVE(); if (d_d7f128) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x4224a2ull); c->rip = B + 0xd7f128ull; d_d7f128(c); } else rc->call(c, B + 0xd7f128ull, B + 0x4224a2ull); RC_LOAD(); }
     { std::memcpy(&v[6], &v[0], 16); }
     { std::memcpy(&v[0], &v[9], 16); }
-    { RC_SAVE(); rc->call(c, B + 0xd7f11cull, B + 0x4224aeull); RC_LOAD(); }
+    { extern RcFn d_d7f11c; RC_SAVE(); if (d_d7f11c) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x4224aeull); c->rip = B + 0xd7f11cull; d_d7f11c(c); } else rc->call(c, B + 0xd7f11cull, B + 0x4224aeull); RC_LOAD(); }
     GuestStore<float>(r[4] + 0x74ull, v[0].f[0]);
     GuestStore<float>(r[4] + 0x78ull, v[6].f[0]);
     { for (int k = 0; k < 4; ++k) v[6].q[k] ^= v[11].q[k]; }
@@ -2419,10 +2419,10 @@ L_4223ab: ;
     { c->flags = ArithFlags(c->flags, 2, GuestLoad<uint32_t>(r[4] + 0x54ull), 0x0ull, (GuestLoad<uint32_t>(r[4] + 0x54ull) & 0x0ull), 4); GuestStore<uint32_t>(r[4] + 0x54ull, (GuestLoad<uint32_t>(r[4] + 0x54ull) & 0x0ull)); }
     { c->flags = ArithFlags(c->flags, 2, GuestLoad<uint32_t>(r[4] + 0x50ull), 0x0ull, (GuestLoad<uint32_t>(r[4] + 0x50ull) & 0x0ull), 4); GuestStore<uint32_t>(r[4] + 0x50ull, (GuestLoad<uint32_t>(r[4] + 0x50ull) & 0x0ull)); }
     { std::memcpy(&v[0], &v[10], 16); }
-    { RC_SAVE(); rc->call(c, B + 0xd7f128ull, B + 0x422513ull); RC_LOAD(); }
+    { extern RcFn d_d7f128; RC_SAVE(); if (d_d7f128) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x422513ull); c->rip = B + 0xd7f128ull; d_d7f128(c); } else rc->call(c, B + 0xd7f128ull, B + 0x422513ull); RC_LOAD(); }
     { std::memcpy(&v[6], &v[0], 16); }
     { std::memcpy(&v[0], &v[10], 16); }
-    { RC_SAVE(); rc->call(c, B + 0xd7f11cull, B + 0x42251full); RC_LOAD(); }
+    { extern RcFn d_d7f11c; RC_SAVE(); if (d_d7f11c) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42251full); c->rip = B + 0xd7f11cull; d_d7f11c(c); } else rc->call(c, B + 0xd7f11cull, B + 0x42251full); RC_LOAD(); }
     GuestStore<float>(r[4] + 0x20ull, v[0].f[0]);
     GuestStore<float>(r[4] + 0x24ull, v[6].f[0]);
     { for (int k = 0; k < 4; ++k) v[6].q[k] ^= v[11].q[k]; }
@@ -2523,20 +2523,20 @@ __attribute__((visibility("hidden"))) void f_422650(CpuContext *c) {
     r[1] = r[14];
     { std::memset(&v[0], 0, 16); v[0].f[0] = GuestLoad<float>(r[0] + 0x304ull); }
     GuestStore<float>(r[5] + 0x67ull, v[0].f[0]);
-    { RC_SAVE(); rc->call(c, B + 0x38e59cull, B + 0x4226c9ull); RC_LOAD(); }
+    { extern RcFn d_38e59c; RC_SAVE(); if (d_38e59c) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x4226c9ull); c->rip = B + 0x38e59cull; d_38e59c(c); } else rc->call(c, B + 0x38e59cull, B + 0x4226c9ull); RC_LOAD(); }
     r[1] = r[14];
     { std::memcpy(&v[7], &v[0], 16); }
     { v[7].f[0] = v[7].f[0] * v[8].f[0]; }
-    { RC_SAVE(); rc->call(c, B + 0x38e538ull, B + 0x4226d9ull); RC_LOAD(); }
+    { extern RcFn d_38e538; RC_SAVE(); if (d_38e538) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x4226d9ull); c->rip = B + 0x38e538ull; d_38e538(c); } else rc->call(c, B + 0x38e538ull, B + 0x4226d9ull); RC_LOAD(); }
     r[1] = r[14];
     { std::memcpy(&v[6], &v[0], 16); }
     { v[6].f[0] = v[6].f[0] * v[8].f[0]; }
-    { RC_SAVE(); rc->call(c, B + 0x351a30ull, B + 0x4226e9ull); RC_LOAD(); }
+    { extern RcFn d_351a30; RC_SAVE(); if (d_351a30) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x4226e9ull); c->rip = B + 0x351a30ull; d_351a30(c); } else rc->call(c, B + 0x351a30ull, B + 0x4226e9ull); RC_LOAD(); }
     r[1] = r[5] + 0x67ull;
     { std::memcpy(&v[3], &v[7], 16); }
     { std::memcpy(&v[2], &v[6], 16); }
     { std::memcpy(&v[1], &v[0], 16); }
-    { RC_SAVE(); rc->call(c, B + 0x7181d8ull, B + 0x4226fbull); RC_LOAD(); }
+    { extern RcFn d_7181d8; RC_SAVE(); if (d_7181d8) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x4226fbull); c->rip = B + 0x7181d8ull; d_7181d8(c); } else rc->call(c, B + 0x7181d8ull, B + 0x4226fbull); RC_LOAD(); }
     { std::memset(&v[6], 0, 16); v[6].f[0] = GuestLoad<float>(r[5] + 0x67ull); }
     { std::memset(&v[0], 0, 16); v[0].f[0] = GuestLoad<float>(r[5] + (uint64_t)(-0x39)); }
     r[15] = r[7] + 0x1d0ull;
@@ -2739,7 +2739,7 @@ __attribute__((visibility("hidden"))) void f_422880(CpuContext *c) {
     { std::memset(&v[2], 0, 16); v[2].f[0] = GuestLoad<float>(r[5] + (uint64_t)(-0x38)); }
     { v[2].f[0] = v[2].f[0] * v[2].f[0]; }
     { v[0].f[0] = v[0].f[0] + v[2].f[0]; }
-    { RC_SAVE(); rc->call(c, B + 0x11067e6ull, B + 0x422a14ull); RC_LOAD(); }
+    { extern RcFn d_11067e6; RC_SAVE(); if (d_11067e6) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x422a14ull); c->rip = B + 0x11067e6ull; d_11067e6(c); } else rc->call(c, B + 0x11067e6ull, B + 0x422a14ull); RC_LOAD(); }
     { const float lhs = v[0].f[0]; const float rhs = GuestLoad<float>(r[14] + 0x1ccull); c->flags &= ~(uint64_t)F_ARITH; if (std::isunordered(lhs, rhs)) c->flags |= F_CF | F_PF | F_ZF; else if (lhs < rhs) c->flags |= F_CF; else if (lhs == rhs) c->flags |= F_ZF; }
     if (Cond(0x2, c->flags)) goto L_422a81;
     r[0] = (uint32_t)(GuestLoad<uint32_t>((uint64_t)(B + 0x200eb68ull)));
@@ -3011,7 +3011,7 @@ __attribute__((visibility("hidden"))) void f_422d14(CpuContext *c) {
     
     r[2] = r[4] + 0x50ull;
     r[1] = r[0];
-    { RC_SAVE(); rc->call(c, B + 0xbcd4cull, B + 0x422d50ull); RC_LOAD(); }
+    { extern RcFn d_bcd4c; RC_SAVE(); if (d_bcd4c) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x422d50ull); c->rip = B + 0xbcd4cull; d_bcd4c(c); } else rc->call(c, B + 0xbcd4cull, B + 0x422d50ull); RC_LOAD(); }
     r[0] = GuestLoad<uint64_t>(r[4] + 0x50ull);
     GuestStore<uint64_t>(r[3], r[0]);
     { c->flags = ArithFlags(c->flags, 2, r[0], r[0], (r[0] & r[0]), 8); }
@@ -3068,7 +3068,7 @@ __attribute__((visibility("hidden"))) void f_422dbc(CpuContext *c) {
     
     r[2] = r[4] + 0x50ull;
     r[1] = r[0];
-    { RC_SAVE(); rc->call(c, B + 0xbcd4cull, B + 0x422df9ull); RC_LOAD(); }
+    { extern RcFn d_bcd4c; RC_SAVE(); if (d_bcd4c) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x422df9ull); c->rip = B + 0xbcd4cull; d_bcd4c(c); } else rc->call(c, B + 0xbcd4cull, B + 0x422df9ull); RC_LOAD(); }
     r[0] = GuestLoad<uint64_t>(r[4] + 0x50ull);
     GuestStore<uint64_t>(r[3], r[0]);
     { c->flags = ArithFlags(c->flags, 2, r[0], r[0], (r[0] & r[0]), 8); }
@@ -3138,7 +3138,7 @@ __attribute__((visibility("hidden"))) void f_422e64(CpuContext *c) {
     
     r[2] = r[5] + (uint64_t)(-0x20);
     r[1] = r[0];
-    { RC_SAVE(); rc->call(c, B + 0xbcd4cull, B + 0x422ecbull); RC_LOAD(); }
+    { extern RcFn d_bcd4c; RC_SAVE(); if (d_bcd4c) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x422ecbull); c->rip = B + 0xbcd4cull; d_bcd4c(c); } else rc->call(c, B + 0xbcd4cull, B + 0x422ecbull); RC_LOAD(); }
     r[2] = r[0];
     r[1] = r[5] + (uint64_t)(-0x10);
     { extern RcFn d_1015c0; RC_SAVE(); if (d_1015c0) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x422ed7ull); c->rip = B + 0x1015c0ull; d_1015c0(c); } else rc->call(c, B + 0x1015c0ull, B + 0x422ed7ull); RC_LOAD(); }
@@ -3321,6 +3321,16 @@ L_4230bb: ;
     r[7] = ({ uint64_t v = GuestLoad<uint64_t>(r[RSP]); r[RSP] += 8; v; });
     { const uint64_t t = GuestLoad<uint64_t>(r[RSP]); r[RSP] += 8; c->rip = t; RC_SAVE(); return; }
     RC_SAVE(); c->rip = B + 0x4230d7ull; return;
+}
+
+__attribute__((visibility("hidden"))) void f_423194(CpuContext *c) {
+    const uint64_t B = rc->image_base;
+    uint64_t r[16];
+    Vec256 v[16];
+    RC_LOAD();
+    GuestStore<uint32_t>(r[1] + 0xc8ull, (r[2] & 0xffffffffull));
+    { const uint64_t t = GuestLoad<uint64_t>(r[RSP]); r[RSP] += 8; c->rip = t; RC_SAVE(); return; }
+    RC_SAVE(); c->rip = B + 0x42319bull; return;
 }
 
 __attribute__((visibility("hidden"))) void f_4231a4(CpuContext *c) {
@@ -4485,7 +4495,7 @@ L_423f7e: ;
     { c->flags = ArithFlags(c->flags, 2, (r[7] & 0xffull), 0x1ull, ((r[7] & 0xffull) & 0x1ull), 1); }
     if (Cond(0x4, c->flags)) goto L_423f94;
     r[1] = r[3];
-    { RC_SAVE(); rc->call(c, B + 0x9ae58ull, B + 0x423f94ull); RC_LOAD(); }
+    { extern RcFn d_9ae58; RC_SAVE(); if (d_9ae58) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x423f94ull); c->rip = B + 0x9ae58ull; d_9ae58(c); } else rc->call(c, B + 0x9ae58ull, B + 0x423f94ull); RC_LOAD(); }
 L_423f94: ;
     r[0] = r[3];
     r[3] = GuestLoad<uint64_t>(r[4] + 0x48ull);
@@ -4599,7 +4609,7 @@ L_4240e5: ;
     { c->flags = ArithFlags(c->flags, 2, (r[7] & 0xffull), 0x1ull, ((r[7] & 0xffull) & 0x1ull), 1); }
     if (Cond(0x4, c->flags)) goto L_4240fb;
     r[1] = r[3];
-    { RC_SAVE(); rc->call(c, B + 0x9ae58ull, B + 0x4240fbull); RC_LOAD(); }
+    { extern RcFn d_9ae58; RC_SAVE(); if (d_9ae58) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x4240fbull); c->rip = B + 0x9ae58ull; d_9ae58(c); } else rc->call(c, B + 0x9ae58ull, B + 0x4240fbull); RC_LOAD(); }
 L_4240fb: ;
     r[0] = r[3];
     r[3] = GuestLoad<uint64_t>(r[4] + 0x48ull);
@@ -4632,7 +4642,7 @@ __attribute__((visibility("hidden"))) void f_42410c(CpuContext *c) {
     { c->flags = ArithFlags(c->flags, 2, (r[15] & 0xffffffffull), (r[15] & 0xffffffffull), ((r[15] & 0xffffffffull) ^ (r[15] & 0xffffffffull)), 4); r[15] = (uint32_t)(((r[15] & 0xffffffffull) ^ (r[15] & 0xffffffffull))); }
     r[1] = r[6];
     GuestStore<uint32_t>(r[7] + 0x60ull, (r[15] & 0xffffffffull));
-    { RC_SAVE(); rc->call(c, B + 0x1183c0ull, B + 0x424150ull); RC_LOAD(); }
+    { extern RcFn d_1183c0; RC_SAVE(); if (d_1183c0) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x424150ull); c->rip = B + 0x1183c0ull; d_1183c0(c); } else rc->call(c, B + 0x1183c0ull, B + 0x424150ull); RC_LOAD(); }
     { c->flags = ArithFlags(c->flags, 2, (r[9] & 0xffffffffull), (r[9] & 0xffffffffull), ((r[9] & 0xffffffffull) ^ (r[9] & 0xffffffffull)), 4); r[9] = (uint32_t)(((r[9] & 0xffffffffull) ^ (r[9] & 0xffffffffull))); }
     r[8] = r[3];
     r[1] = r[7];
@@ -4675,7 +4685,7 @@ __attribute__((visibility("hidden"))) void f_42410c(CpuContext *c) {
     { const uint64_t t = GuestLoad<uint64_t>(r[0] + 0x190ull); RC_SAVE(); rc->call(c, t, B + 0x424222ull); RC_LOAD(); }
     r[2] = GuestLoad<uint64_t>(r[6] + 0x160ull);
     r[1] = GuestLoad<uint64_t>(r[0] + 0x20ull);
-    { RC_SAVE(); rc->call(c, B + 0x7d69ccull, B + 0x424232ull); RC_LOAD(); }
+    { extern RcFn d_7d69cc; RC_SAVE(); if (d_7d69cc) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x424232ull); c->rip = B + 0x7d69ccull; d_7d69cc(c); } else rc->call(c, B + 0x7d69ccull, B + 0x424232ull); RC_LOAD(); }
     r[3] = r[0];
     { c->flags = ArithFlags(c->flags, 1, r[0], GuestLoad<uint64_t>(r[7] + 0x110ull), (r[0] - GuestLoad<uint64_t>(r[7] + 0x110ull)), 8); }
     if (Cond(0x4, c->flags)) goto L_424271;
@@ -4987,7 +4997,7 @@ L_424730: ;
     { std::memcpy(&v[2], &v[7], 16); }
     { std::memcpy(&v[1], &v[7], 16); }
     { v[3].f[0] = v[3].f[0] * GuestLoad<float>(r[0] + 0x4c0ull); }
-    { RC_SAVE(); rc->call(c, B + 0x7181d8ull, B + 0x424767ull); RC_LOAD(); }
+    { extern RcFn d_7181d8; RC_SAVE(); if (d_7181d8) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x424767ull); c->rip = B + 0x7181d8ull; d_7181d8(c); } else rc->call(c, B + 0x7181d8ull, B + 0x424767ull); RC_LOAD(); }
     { c->flags = ArithFlags(c->flags, 2, GuestLoad<uint32_t>(r[5] + 0x30ull), 0x0ull, (GuestLoad<uint32_t>(r[5] + 0x30ull) & 0x0ull), 4); GuestStore<uint32_t>(r[5] + 0x30ull, (GuestLoad<uint32_t>(r[5] + 0x30ull) & 0x0ull)); }
     { std::memset(&v[1], 0, 16); v[1].f[0] = GuestLoad<float>(r[3] + 0x150ull); }
     { for (int k = 0; k < 4; ++k) v[9].q[k] ^= v[10].q[k]; }
@@ -5040,7 +5050,7 @@ L_424730: ;
     { v[0].f[0] = v[0].f[0] * v[0].f[0]; }
     { v[1].f[0] = v[1].f[0] * v[1].f[0]; }
     { v[0].f[0] = v[0].f[0] + v[1].f[0]; }
-    { RC_SAVE(); rc->call(c, B + 0x11067e6ull, B + 0x424879ull); RC_LOAD(); }
+    { extern RcFn d_11067e6; RC_SAVE(); if (d_11067e6) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x424879ull); c->rip = B + 0x11067e6ull; d_11067e6(c); } else rc->call(c, B + 0x11067e6ull, B + 0x424879ull); RC_LOAD(); }
     { std::memcpy(&v[1], &v[0], 16); }
     { v[1].f[0] = v[1].f[0] - v[9].f[0]; }
     { const float lhs = v[7].f[0]; const float rhs = v[1].f[0]; c->flags &= ~(uint64_t)F_ARITH; if (std::isunordered(lhs, rhs)) c->flags |= F_CF | F_PF | F_ZF; else if (lhs < rhs) c->flags |= F_CF; else if (lhs == rhs) c->flags |= F_ZF; }
@@ -5387,7 +5397,7 @@ L_424c86: ;
     if (Cond(0x2, c->flags)) goto L_424e8d;
     r[2] = r[5] + 0x100ull;
     r[1] = r[12];
-    { RC_SAVE(); rc->call(c, B + 0x396664ull, B + 0x424e68ull); RC_LOAD(); }
+    { extern RcFn d_396664; RC_SAVE(); if (d_396664) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x424e68ull); c->rip = B + 0x396664ull; d_396664(c); } else rc->call(c, B + 0x396664ull, B + 0x424e68ull); RC_LOAD(); }
     GuestStore<uint64_t>(r[4] + 0x20ull, r[14]);
     { c->flags = ArithFlags(c->flags, 2, (r[9] & 0xffffffffull), (r[9] & 0xffffffffull), ((r[9] & 0xffffffffull) ^ (r[9] & 0xffffffffull)), 4); r[9] = (uint32_t)(((r[9] & 0xffffffffull) ^ (r[9] & 0xffffffffull))); }
     { c->flags = ArithFlags(c->flags, 2, (r[8] & 0xffffffffull), (r[8] & 0xffffffffull), ((r[8] & 0xffffffffull) ^ (r[8] & 0xffffffffull)), 4); r[8] = (uint32_t)(((r[8] & 0xffffffffull) ^ (r[8] & 0xffffffffull))); }
@@ -5443,7 +5453,7 @@ L_424ef9: ;
     if (Cond(0x4, c->flags)) goto L_425002;
     r[2] = r[3];
     r[1] = r[5] + (uint64_t)(-0x20);
-    { RC_SAVE(); rc->call(c, B + 0xbd3e8ull, B + 0x424f56ull); RC_LOAD(); }
+    { extern RcFn d_bd3e8; RC_SAVE(); if (d_bd3e8) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x424f56ull); c->rip = B + 0xbd3e8ull; d_bd3e8(c); } else rc->call(c, B + 0xbd3e8ull, B + 0x424f56ull); RC_LOAD(); }
     
     r[3] = GuestLoad<uint64_t>(r[5] + (uint64_t)(-0x20));
     r[1] = GuestLoad<uint64_t>(r[3] + 0x3b0ull);
@@ -5544,7 +5554,7 @@ L_425002: ;
     { std::memset(&v[2], 0, 16); v[2].f[0] = GuestLoad<float>(r[5] + (uint64_t)(-0x78)); }
     { v[2].f[0] = v[2].f[0] * v[2].f[0]; }
     { v[0].f[0] = v[0].f[0] + v[2].f[0]; }
-    { RC_SAVE(); rc->call(c, B + 0x11067e6ull, B + 0x4250eaull); RC_LOAD(); }
+    { extern RcFn d_11067e6; RC_SAVE(); if (d_11067e6) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x4250eaull); c->rip = B + 0x11067e6ull; d_11067e6(c); } else rc->call(c, B + 0x11067e6ull, B + 0x4250eaull); RC_LOAD(); }
     { v[0].f[0] = v[0].f[0] + v[14].f[0]; }
     { std::memset(&v[1], 0, 16); v[1].f[0] = GuestLoad<float>(r[13] + 0x14cull); }
     { const float lhs = v[1].f[0]; const float rhs = v[0].f[0]; c->flags &= ~(uint64_t)F_ARITH; if (std::isunordered(lhs, rhs)) c->flags |= F_CF | F_PF | F_ZF; else if (lhs < rhs) c->flags |= F_CF; else if (lhs == rhs) c->flags |= F_ZF; }
@@ -5652,7 +5662,7 @@ L_42528d: ;
     if (Cond(0x4, c->flags)) goto L_425339;
     r[2] = r[3];
     r[1] = r[5] + 0x568ull;
-    { RC_SAVE(); rc->call(c, B + 0xbd3e8ull, B + 0x4252d4ull); RC_LOAD(); }
+    { extern RcFn d_bd3e8; RC_SAVE(); if (d_bd3e8) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x4252d4ull); c->rip = B + 0xbd3e8ull; d_bd3e8(c); } else rc->call(c, B + 0xbd3e8ull, B + 0x4252d4ull); RC_LOAD(); }
     
     r[3] = GuestLoad<uint64_t>(r[5] + 0x568ull);
     { c->flags = ArithFlags(c->flags, 1, GuestLoad<uint8_t>(r[3] + 0xa84ull), 0x0ull, (GuestLoad<uint8_t>(r[3] + 0xa84ull) - 0x0ull), 1); }
@@ -5729,7 +5739,7 @@ L_4253da: ;
     { extern RcFn d_2e2390; RC_SAVE(); if (d_2e2390) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x425400ull); c->rip = B + 0x2e2390ull; d_2e2390(c); } else rc->call(c, B + 0x2e2390ull, B + 0x425400ull); RC_LOAD(); }
     r[1] = r[0];
     r[2] = r[5] + 0xb8ull;
-    { RC_SAVE(); rc->call(c, B + 0xc9d10ull, B + 0x42540full); RC_LOAD(); }
+    { extern RcFn d_c9d10; RC_SAVE(); if (d_c9d10) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42540full); c->rip = B + 0xc9d10ull; d_c9d10(c); } else rc->call(c, B + 0xc9d10ull, B + 0x42540full); RC_LOAD(); }
     r[3] = GuestLoad<uint64_t>(r[0]);
     r[1] = GuestLoad<uint64_t>(r[5] + 0xb8ull);
     { c->flags = ArithFlags(c->flags, 2, (r[12] & 0xffffffffull), (r[12] & 0xffffffffull), ((r[12] & 0xffffffffull) ^ (r[12] & 0xffffffffull)), 4); r[12] = (uint32_t)(((r[12] & 0xffffffffull) ^ (r[12] & 0xffffffffull))); }
@@ -6028,7 +6038,7 @@ L_4258c8: ;
     { extern RcFn d_2e2390; RC_SAVE(); if (d_2e2390) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x4258ebull); c->rip = B + 0x2e2390ull; d_2e2390(c); } else rc->call(c, B + 0x2e2390ull, B + 0x4258ebull); RC_LOAD(); }
     r[1] = r[0];
     r[2] = r[5] + 0x70ull;
-    { RC_SAVE(); rc->call(c, B + 0xc9d10ull, B + 0x4258f7ull); RC_LOAD(); }
+    { extern RcFn d_c9d10; RC_SAVE(); if (d_c9d10) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x4258f7ull); c->rip = B + 0xc9d10ull; d_c9d10(c); } else rc->call(c, B + 0xc9d10ull, B + 0x4258f7ull); RC_LOAD(); }
     r[3] = GuestLoad<uint64_t>(r[0]);
     r[1] = GuestLoad<uint64_t>(r[5] + 0x70ull);
     { c->flags = ArithFlags(c->flags, 2, r[1], r[1], (r[1] & r[1]), 8); }
@@ -6159,7 +6169,7 @@ L_425b0c: ;
 L_425b1c: ;
     r[2] = r[5] + (uint64_t)(-0x70);
     r[1] = r[12];
-    { RC_SAVE(); rc->call(c, B + 0x396664ull, B + 0x425b28ull); RC_LOAD(); }
+    { extern RcFn d_396664; RC_SAVE(); if (d_396664) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x425b28ull); c->rip = B + 0x396664ull; d_396664(c); } else rc->call(c, B + 0x396664ull, B + 0x425b28ull); RC_LOAD(); }
     { c->flags = ArithFlags(c->flags, 2, GuestLoad<uint64_t>(r[4] + 0x20ull), 0x0ull, (GuestLoad<uint64_t>(r[4] + 0x20ull) & 0x0ull), 8); GuestStore<uint64_t>(r[4] + 0x20ull, (GuestLoad<uint64_t>(r[4] + 0x20ull) & 0x0ull)); }
     { c->flags = ArithFlags(c->flags, 2, (r[9] & 0xffffffffull), (r[9] & 0xffffffffull), ((r[9] & 0xffffffffull) ^ (r[9] & 0xffffffffull)), 4); r[9] = (uint32_t)(((r[9] & 0xffffffffull) ^ (r[9] & 0xffffffffull))); }
     { c->flags = ArithFlags(c->flags, 2, (r[8] & 0xffffffffull), (r[8] & 0xffffffffull), ((r[8] & 0xffffffffull) ^ (r[8] & 0xffffffffull)), 4); r[8] = (uint32_t)(((r[8] & 0xffffffffull) ^ (r[8] & 0xffffffffull))); }
@@ -6423,7 +6433,7 @@ __attribute__((visibility("hidden"))) void f_425e1c(CpuContext *c) {
     
     r[2] = r[4] + 0x50ull;
     r[1] = r[0];
-    { RC_SAVE(); rc->call(c, B + 0xbcd4cull, B + 0x425e59ull); RC_LOAD(); }
+    { extern RcFn d_bcd4c; RC_SAVE(); if (d_bcd4c) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x425e59ull); c->rip = B + 0xbcd4cull; d_bcd4c(c); } else rc->call(c, B + 0xbcd4cull, B + 0x425e59ull); RC_LOAD(); }
     r[0] = GuestLoad<uint64_t>(r[4] + 0x50ull);
     GuestStore<uint64_t>(r[3], r[0]);
     { c->flags = ArithFlags(c->flags, 2, r[0], r[0], (r[0] & r[0]), 8); }
@@ -6478,7 +6488,7 @@ __attribute__((visibility("hidden"))) void f_425ec4(CpuContext *c) {
     { c->flags = ArithFlags(c->flags, 2, GuestLoad<uint32_t>(r[5] + (uint64_t)(-0x20)), 0x0ull, (GuestLoad<uint32_t>(r[5] + (uint64_t)(-0x20)) & 0x0ull), 4); GuestStore<uint32_t>(r[5] + (uint64_t)(-0x20), (GuestLoad<uint32_t>(r[5] + (uint64_t)(-0x20)) & 0x0ull)); }
     r[2] = r[5] + (uint64_t)(-0x10);
     r[1] = r[0];
-    { RC_SAVE(); rc->call(c, B + 0x396664ull, B + 0x425ef9ull); RC_LOAD(); }
+    { extern RcFn d_396664; RC_SAVE(); if (d_396664) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x425ef9ull); c->rip = B + 0x396664ull; d_396664(c); } else rc->call(c, B + 0x396664ull, B + 0x425ef9ull); RC_LOAD(); }
     
     r[0] = GuestLoad<uint64_t>(r[0]);
     GuestStore<uint64_t>(r[5] + 0x28ull, r[0]);
@@ -6492,7 +6502,7 @@ L_425f0a: ;
     
     r[2] = r[5] + 0x20ull;
     r[1] = r[0];
-    { RC_SAVE(); rc->call(c, B + 0xbcd4cull, B + 0x425f24ull); RC_LOAD(); }
+    { extern RcFn d_bcd4c; RC_SAVE(); if (d_bcd4c) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x425f24ull); c->rip = B + 0xbcd4cull; d_bcd4c(c); } else rc->call(c, B + 0xbcd4cull, B + 0x425f24ull); RC_LOAD(); }
     r[0] = GuestLoad<uint64_t>(r[5] + 0x20ull);
     GuestStore<uint64_t>(r[3], r[0]);
     { c->flags = ArithFlags(c->flags, 2, r[0], r[0], (r[0] & r[0]), 8); }
@@ -6561,7 +6571,7 @@ __attribute__((visibility("hidden"))) void f_425fb0(CpuContext *c) {
     
     r[2] = r[4] + 0x50ull;
     r[1] = r[0];
-    { RC_SAVE(); rc->call(c, B + 0xbcd4cull, B + 0x425fecull); RC_LOAD(); }
+    { extern RcFn d_bcd4c; RC_SAVE(); if (d_bcd4c) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x425fecull); c->rip = B + 0xbcd4cull; d_bcd4c(c); } else rc->call(c, B + 0xbcd4cull, B + 0x425fecull); RC_LOAD(); }
     r[0] = GuestLoad<uint64_t>(r[4] + 0x50ull);
     GuestStore<uint64_t>(r[3], r[0]);
     { c->flags = ArithFlags(c->flags, 2, r[0], r[0], (r[0] & r[0]), 8); }
@@ -7559,7 +7569,7 @@ __attribute__((visibility("hidden"))) void f_426c30(CpuContext *c) {
     GuestStore<uint32_t>(r[3] + 0x194ull, 0x43960000ull);
     GuestStore<uint64_t>(r[3] + 0x1a0ull, r[1]);
     r[1] = r[4] + 0x30ull;
-    { RC_SAVE(); rc->call(c, B + 0x1db430ull, B + 0x426cc8ull); RC_LOAD(); }
+    { extern RcFn d_1db430; RC_SAVE(); if (d_1db430) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x426cc8ull); c->rip = B + 0x1db430ull; d_1db430(c); } else rc->call(c, B + 0x1db430ull, B + 0x426cc8ull); RC_LOAD(); }
     r[0] = (uint32_t)(GuestLoad<uint16_t>(r[4] + 0x30ull));
     GuestStore<uint8_t>(r[3] + 0x119ull, 0x1ull);
     GuestStore<uint16_t>(r[3] + 0xb2ull, (r[0] & 0xffffull));
@@ -7641,7 +7651,7 @@ __attribute__((visibility("hidden"))) void f_426d88(CpuContext *c) {
     { c->flags = ArithFlags(c->flags, 2, (r[3] & 0xffull), 0x1ull, ((r[3] & 0xffull) & 0x1ull), 1); }
     if (Cond(0x4, c->flags)) goto L_426db3;
     r[1] = r[7];
-    { RC_SAVE(); rc->call(c, B + 0x9ae58ull, B + 0x426db3ull); RC_LOAD(); }
+    { extern RcFn d_9ae58; RC_SAVE(); if (d_9ae58) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x426db3ull); c->rip = B + 0x9ae58ull; d_9ae58(c); } else rc->call(c, B + 0x9ae58ull, B + 0x426db3ull); RC_LOAD(); }
 L_426db3: ;
     r[0] = r[7];
     r[3] = GuestLoad<uint64_t>(r[4] + 0x30ull);
@@ -7739,7 +7749,7 @@ L_426eff: ;
     r[2] = r[5] + 0x10ull;
     r[1] = GuestLoad<uint64_t>(r[0] + 0x58ull);
     { c->flags = ArithFlags(c->flags, 0, r[1], 0x170ull, (r[1] + 0x170ull), 8); r[1] = (r[1] + 0x170ull); }
-    { RC_SAVE(); rc->call(c, B + 0xe3854ull, B + 0x426f1eull); RC_LOAD(); }
+    { extern RcFn d_e3854; RC_SAVE(); if (d_e3854) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x426f1eull); c->rip = B + 0xe3854ull; d_e3854(c); } else rc->call(c, B + 0xe3854ull, B + 0x426f1eull); RC_LOAD(); }
     r[1] = GuestLoad<uint64_t>(r[5] + 0x10ull);
     r[3] = GuestLoad<uint64_t>(r[0]);
     { c->flags = ArithFlags(c->flags, 2, r[1], r[1], (r[1] & r[1]), 8); }
@@ -7996,7 +8006,7 @@ L_4272cc: ;
     { const uint64_t t = GuestLoad<uint64_t>(r[0] + 0x70ull); RC_SAVE(); rc->call(c, t, B + 0x4272daull); RC_LOAD(); }
     r[2] = r[5] + 0x6full;
     r[1] = r[6];
-    { RC_SAVE(); rc->call(c, B + 0x1183f4ull, B + 0x4272e6ull); RC_LOAD(); }
+    { extern RcFn d_1183f4; RC_SAVE(); if (d_1183f4) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x4272e6ull); c->rip = B + 0x1183f4ull; d_1183f4(c); } else rc->call(c, B + 0x1183f4ull, B + 0x4272e6ull); RC_LOAD(); }
     { c->flags = ArithFlags(c->flags, 1, GuestLoad<uint64_t>(r[0]), 0x0ull, (GuestLoad<uint64_t>(r[0]) - 0x0ull), 8); }
     r[14] = (r[14] & ~0xffull) | (((uint8_t)Cond(0x5, c->flags)) & 0xffull);
     r[1] = GuestLoad<uint64_t>(r[5] + 0x6full);
@@ -8027,7 +8037,7 @@ L_427312: ;
     if (Cond(0x4, c->flags)) goto L_4273b2;
     r[2] = r[5] + 0x77ull;
     r[1] = r[6];
-    { RC_SAVE(); rc->call(c, B + 0x1183c0ull, B + 0x427358ull); RC_LOAD(); }
+    { extern RcFn d_1183c0; RC_SAVE(); if (d_1183c0) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x427358ull); c->rip = B + 0x1183c0ull; d_1183c0(c); } else rc->call(c, B + 0x1183c0ull, B + 0x427358ull); RC_LOAD(); }
     { c->flags = ArithFlags(c->flags, 2, GuestLoad<uint64_t>(r[4] + 0x20ull), 0x0ull, (GuestLoad<uint64_t>(r[4] + 0x20ull) & 0x0ull), 8); GuestStore<uint64_t>(r[4] + 0x20ull, (GuestLoad<uint64_t>(r[4] + 0x20ull) & 0x0ull)); }
     r[9] = (r[9] & ~0xffull) | ((0x1ull) & 0xffull);
     { c->flags = ArithFlags(c->flags, 2, (r[8] & 0xffffffffull), (r[8] & 0xffffffffull), ((r[8] & 0xffffffffull) ^ (r[8] & 0xffffffffull)), 4); r[8] = (uint32_t)(((r[8] & 0xffffffffull) ^ (r[8] & 0xffffffffull))); }
@@ -8041,7 +8051,7 @@ L_427378: ;
     if (Cond(0x5, c->flags)) goto L_4273b2;
     r[2] = r[5] + 0x7full;
     r[1] = r[6];
-    { RC_SAVE(); rc->call(c, B + 0x1183f4ull, B + 0x42738dull); RC_LOAD(); }
+    { extern RcFn d_1183f4; RC_SAVE(); if (d_1183f4) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42738dull); c->rip = B + 0x1183f4ull; d_1183f4(c); } else rc->call(c, B + 0x1183f4ull, B + 0x42738dull); RC_LOAD(); }
     { c->flags = ArithFlags(c->flags, 2, GuestLoad<uint64_t>(r[4] + 0x20ull), 0x0ull, (GuestLoad<uint64_t>(r[4] + 0x20ull) & 0x0ull), 8); GuestStore<uint64_t>(r[4] + 0x20ull, (GuestLoad<uint64_t>(r[4] + 0x20ull) & 0x0ull)); }
     r[9] = (r[9] & ~0xffull) | ((0x1ull) & 0xffull);
     { c->flags = ArithFlags(c->flags, 2, (r[8] & 0xffffffffull), (r[8] & 0xffffffffull), ((r[8] & 0xffffffffull) ^ (r[8] & 0xffffffffull)), 4); r[8] = (uint32_t)(((r[8] & 0xffffffffull) ^ (r[8] & 0xffffffffull))); }
@@ -8079,7 +8089,7 @@ L_4273b2: ;
     { std::memset(&v[2], 0, 16); v[2].f[0] = GuestLoad<float>(r[5] + (uint64_t)(-0x11)); }
     { v[2].f[0] = v[2].f[0] * v[2].f[0]; }
     { v[0].f[0] = v[0].f[0] + v[2].f[0]; }
-    { RC_SAVE(); rc->call(c, B + 0x11067e6ull, B + 0x427434ull); RC_LOAD(); }
+    { extern RcFn d_11067e6; RC_SAVE(); if (d_11067e6) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x427434ull); c->rip = B + 0x11067e6ull; d_11067e6(c); } else rc->call(c, B + 0x11067e6ull, B + 0x427434ull); RC_LOAD(); }
     GuestStore<float>(r[7] + 0x6cull, v[0].f[0]);
     r[1] = r[5] + (uint64_t)(-0x19);
     { extern RcFn d_9c418c; RC_SAVE(); if (d_9c418c) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x427442ull); c->rip = B + 0x9c418cull; d_9c418c(c); } else rc->call(c, B + 0x9c418cull, B + 0x427442ull); RC_LOAD(); }
@@ -8140,7 +8150,7 @@ L_4274c6: ;
     if (Cond(0x4, c->flags)) goto L_4275b4;
     r[2] = r[5] + 0x30ull;
     r[1] = r[6];
-    { RC_SAVE(); rc->call(c, B + 0x38e6d8ull, B + 0x4274efull); RC_LOAD(); }
+    { extern RcFn d_38e6d8; RC_SAVE(); if (d_38e6d8) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x4274efull); c->rip = B + 0x38e6d8ull; d_38e6d8(c); } else rc->call(c, B + 0x38e6d8ull, B + 0x4274efull); RC_LOAD(); }
     
     r[3] = GuestLoad<uint64_t>(r[0]);
     r[1] = GuestLoad<uint64_t>(r[6] + 0x18ull);
@@ -8250,7 +8260,7 @@ __attribute__((visibility("hidden"))) void f_427608(CpuContext *c) {
     r[6] = GuestLoad<uint64_t>(r[1] + 0x10ull);
     { std::memset(&v[7], 0, 16); v[7].f[0] = GuestLoad<float>((uint64_t)(B + 0x16b4460ull)); }
     { std::memcpy(&v[1], &v[2], 16); }
-    { RC_SAVE(); rc->call(c, B + 0x9c46e8ull, B + 0x427642ull); RC_LOAD(); }
+    { extern RcFn d_9c46e8; RC_SAVE(); if (d_9c46e8) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x427642ull); c->rip = B + 0x9c46e8ull; d_9c46e8(c); } else rc->call(c, B + 0x9c46e8ull, B + 0x427642ull); RC_LOAD(); }
     { for (int k = 0; k < 4; ++k) v[5].q[k] ^= v[5].q[k]; }
     { c->rip = B + 0x427645ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* cvtss2sd xmm5, xmm0 */
     { Vec256 t; GuestLoadV(t, (uint64_t)(B + 0x16b5410ull)); for (int k = 0; k < 4; ++k) v[5].q[k] &= t.q[k]; }
@@ -8272,7 +8282,7 @@ L_427665: ;
     { std::memcpy(&v[6], &v[0], 16); }
     r[2] = r[4] + 0x88ull;
     r[1] = r[7];
-    { RC_SAVE(); rc->call(c, B + 0x38e6d8ull, B + 0x4276a3ull); RC_LOAD(); }
+    { extern RcFn d_38e6d8; RC_SAVE(); if (d_38e6d8) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x4276a3ull); c->rip = B + 0x38e6d8ull; d_38e6d8(c); } else rc->call(c, B + 0x38e6d8ull, B + 0x4276a3ull); RC_LOAD(); }
     
     r[2] = r[0];
     r[1] = r[4] + 0x70ull;
@@ -8297,7 +8307,7 @@ L_4276d6: ;
     { std::memset(&v[6], 0, 16); v[6].f[0] = GuestLoad<float>(r[1] + 0x14cull); }
     goto L_427702;
 L_4276fa: ;
-    { RC_SAVE(); rc->call(c, B + 0x351a30ull, B + 0x4276ffull); RC_LOAD(); }
+    { extern RcFn d_351a30; RC_SAVE(); if (d_351a30) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x4276ffull); c->rip = B + 0x351a30ull; d_351a30(c); } else rc->call(c, B + 0x351a30ull, B + 0x4276ffull); RC_LOAD(); }
     { std::memcpy(&v[6], &v[0], 16); }
 L_427702: ;
     { v[6].f[0] = v[6].f[0] * GuestLoad<float>(r[6] + 0x18cull); }
@@ -8311,7 +8321,7 @@ L_42770c: ;
     { std::memset(&v[6], 0, 16); v[6].f[0] = GuestLoad<float>(r[1] + 0x14cull); }
     goto L_427734;
 L_42772c: ;
-    { RC_SAVE(); rc->call(c, B + 0x351a30ull, B + 0x427731ull); RC_LOAD(); }
+    { extern RcFn d_351a30; RC_SAVE(); if (d_351a30) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x427731ull); c->rip = B + 0x351a30ull; d_351a30(c); } else rc->call(c, B + 0x351a30ull, B + 0x427731ull); RC_LOAD(); }
     { std::memcpy(&v[6], &v[0], 16); }
 L_427734: ;
     { v[6].f[0] = v[6].f[0] * GuestLoad<float>(r[6] + 0x190ull); }
@@ -8335,7 +8345,7 @@ L_42776b: ;
     { std::memset(&v[6], 0, 16); v[6].f[0] = GuestLoad<float>(r[1] + 0x14cull); }
     goto L_42778a;
 L_427782: ;
-    { RC_SAVE(); rc->call(c, B + 0x351a30ull, B + 0x427787ull); RC_LOAD(); }
+    { extern RcFn d_351a30; RC_SAVE(); if (d_351a30) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x427787ull); c->rip = B + 0x351a30ull; d_351a30(c); } else rc->call(c, B + 0x351a30ull, B + 0x427787ull); RC_LOAD(); }
     { std::memcpy(&v[6], &v[0], 16); }
 L_42778a: ;
     { v[6].f[0] = v[6].f[0] * v[7].f[0]; }
@@ -8358,7 +8368,7 @@ L_4277b4: ;
     { std::memset(&v[0], 0, 16); v[0].f[0] = GuestLoad<float>(r[1] + 0x14cull); }
     goto L_4277d0;
 L_4277cb: ;
-    { RC_SAVE(); rc->call(c, B + 0x351a30ull, B + 0x4277d0ull); RC_LOAD(); }
+    { extern RcFn d_351a30; RC_SAVE(); if (d_351a30) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x4277d0ull); c->rip = B + 0x351a30ull; d_351a30(c); } else rc->call(c, B + 0x351a30ull, B + 0x4277d0ull); RC_LOAD(); }
 L_4277d0: ;
     { v[0].f[0] = v[0].f[0] * v[7].f[0]; }
 L_4277d4: ;
@@ -8802,7 +8812,7 @@ L_427e3f: ;
     r[3] = GuestLoad<uint64_t>(r[7] + 0x18ull);
     r[2] = r[5] + 0xf0ull;
     r[1] = r[3];
-    { RC_SAVE(); rc->call(c, B + 0x53aa84ull, B + 0x427ed3ull); RC_LOAD(); }
+    { extern RcFn d_53aa84; RC_SAVE(); if (d_53aa84) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x427ed3ull); c->rip = B + 0x53aa84ull; d_53aa84(c); } else rc->call(c, B + 0x53aa84ull, B + 0x427ed3ull); RC_LOAD(); }
     { std::memset(&v[12], 0, 16); v[12].f[0] = GuestLoad<float>(r[4] + 0x54ull); }
     { std::memcpy(&v[2], &v[12], 16); }
     { v[2].f[0] = v[2].f[0] * GuestLoad<float>(r[0] + 0x4ull); }
@@ -8832,7 +8842,7 @@ L_427e3f: ;
     { for (int k = 0; k < 4; ++k) v[12].q[k] ^= v[11].q[k]; }
     { for (int k = 0; k < 4; ++k) v[13].q[k] ^= v[11].q[k]; }
     r[2] = r[4] + 0x60ull;
-    { RC_SAVE(); rc->call(c, B + 0x53aa84ull, B + 0x427f6dull); RC_LOAD(); }
+    { extern RcFn d_53aa84; RC_SAVE(); if (d_53aa84) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x427f6dull); c->rip = B + 0x53aa84ull; d_53aa84(c); } else rc->call(c, B + 0x53aa84ull, B + 0x427f6dull); RC_LOAD(); }
     { std::memset(&v[8], 0, 16); v[8].f[0] = GuestLoad<float>(r[4] + 0x60ull); }
     { v[8].f[0] = v[8].f[0] * v[10].f[0]; }
     { std::memset(&v[7], 0, 16); v[7].f[0] = GuestLoad<float>(r[4] + 0x64ull); }
@@ -8918,10 +8928,10 @@ L_427e3f: ;
     { v[0].f[0] = v[0].f[0] + v[1].f[0]; }
     { v[2].f[0] = v[2].f[0] * v[2].f[0]; }
     { v[0].f[0] = v[0].f[0] + v[2].f[0]; }
-    { RC_SAVE(); rc->call(c, B + 0x11067e6ull, B + 0x428111ull); RC_LOAD(); }
+    { extern RcFn d_11067e6; RC_SAVE(); if (d_11067e6) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x428111ull); c->rip = B + 0x11067e6ull; d_11067e6(c); } else rc->call(c, B + 0x11067e6ull, B + 0x428111ull); RC_LOAD(); }
     { std::memcpy(&v[6], &v[0], 16); }
     r[1] = r[15];
-    { RC_SAVE(); rc->call(c, B + 0x351a30ull, B + 0x42811cull); RC_LOAD(); }
+    { extern RcFn d_351a30; RC_SAVE(); if (d_351a30) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42811cull); c->rip = B + 0x351a30ull; d_351a30(c); } else rc->call(c, B + 0x351a30ull, B + 0x42811cull); RC_LOAD(); }
     { v[6].f[0] = v[6].f[0] / v[0].f[0]; }
     GuestStore<float>(r[7] + 0x124ull, v[6].f[0]);
     r[1] = GuestLoad<uint64_t>(r[7] + 0x18ull);
@@ -8966,7 +8976,7 @@ L_4281ce: ;
     GuestLoadV(v[0], r[4] + 0x50ull);
     GuestStoreV(r[5] + (uint64_t)(-0x80), v[0]);
     r[2] = r[4] + 0x70ull;
-    { RC_SAVE(); rc->call(c, B + 0x53aa84ull, B + 0x4281e2ull); RC_LOAD(); }
+    { extern RcFn d_53aa84; RC_SAVE(); if (d_53aa84) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x4281e2ull); c->rip = B + 0x53aa84ull; d_53aa84(c); } else rc->call(c, B + 0x53aa84ull, B + 0x4281e2ull); RC_LOAD(); }
     { v[9].f[0] = v[9].f[0] * v[6].f[0]; }
     { v[12].f[0] = v[12].f[0] * v[6].f[0]; }
     { v[13].f[0] = v[13].f[0] * v[6].f[0]; }
@@ -9175,7 +9185,7 @@ L_4281ce: ;
     { v[0].f[0] = v[0].f[0] + v[1].f[0]; }
     { v[2].f[0] = v[2].f[0] * v[2].f[0]; }
     { v[0].f[0] = v[0].f[0] + v[2].f[0]; }
-    { RC_SAVE(); rc->call(c, B + 0x11067e6ull, B + 0x428604ull); RC_LOAD(); }
+    { extern RcFn d_11067e6; RC_SAVE(); if (d_11067e6) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x428604ull); c->rip = B + 0x11067e6ull; d_11067e6(c); } else rc->call(c, B + 0x11067e6ull, B + 0x428604ull); RC_LOAD(); }
     { std::memcpy(&v[6], &v[0], 16); }
     { v[9].f[0] = v[9].f[0] * v[9].f[0]; }
     { v[7].f[0] = v[7].f[0] * v[7].f[0]; }
@@ -9183,10 +9193,10 @@ L_4281ce: ;
     { v[8].f[0] = v[8].f[0] * v[8].f[0]; }
     { v[9].f[0] = v[9].f[0] + v[8].f[0]; }
     { std::memcpy(&v[0], &v[9], 16); }
-    { RC_SAVE(); rc->call(c, B + 0x11067e6ull, B + 0x428628ull); RC_LOAD(); }
+    { extern RcFn d_11067e6; RC_SAVE(); if (d_11067e6) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x428628ull); c->rip = B + 0x11067e6ull; d_11067e6(c); } else rc->call(c, B + 0x11067e6ull, B + 0x428628ull); RC_LOAD(); }
     { v[6].f[0] = v[6].f[0] + v[0].f[0]; }
     r[1] = r[15];
-    { RC_SAVE(); rc->call(c, B + 0x351a30ull, B + 0x428634ull); RC_LOAD(); }
+    { extern RcFn d_351a30; RC_SAVE(); if (d_351a30) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x428634ull); c->rip = B + 0x351a30ull; d_351a30(c); } else rc->call(c, B + 0x351a30ull, B + 0x428634ull); RC_LOAD(); }
     { v[6].f[0] = v[6].f[0] / v[0].f[0]; }
     GuestStore<float>(r[7] + 0x124ull, v[6].f[0]);
     r[1] = GuestLoad<uint64_t>(r[7] + 0x18ull);
@@ -9280,7 +9290,7 @@ __attribute__((visibility("hidden"))) void f_42875c(CpuContext *c) {
     r[7] = r[1];
     { c->flags = ArithFlags(c->flags, 2, GuestLoad<uint32_t>(r[5] + 0x6full), 0x0ull, (GuestLoad<uint32_t>(r[5] + 0x6full) & 0x0ull), 4); GuestStore<uint32_t>(r[5] + 0x6full, (GuestLoad<uint32_t>(r[5] + 0x6full) & 0x0ull)); }
     r[2] = r[5] + 0x77ull;
-    { RC_SAVE(); rc->call(c, B + 0x38e6d8ull, B + 0x42878aull); RC_LOAD(); }
+    { extern RcFn d_38e6d8; RC_SAVE(); if (d_38e6d8) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42878aull); c->rip = B + 0x38e6d8ull; d_38e6d8(c); } else rc->call(c, B + 0x38e6d8ull, B + 0x42878aull); RC_LOAD(); }
     
     GuestStore<uint32_t>(r[5] + 0x6full, 0x1ull);
     { c->flags = ArithFlags(c->flags, 1, GuestLoad<uint64_t>(r[0]), 0x0ull, (GuestLoad<uint64_t>(r[0]) - 0x0ull), 8); }
@@ -9316,7 +9326,7 @@ L_4287e4: ;
     if (Cond(0x4, c->flags)) goto L_42897c;
     r[2] = r[5] + 0x7full;
     r[1] = r[7];
-    { RC_SAVE(); rc->call(c, B + 0x38e6d8ull, B + 0x4287f8ull); RC_LOAD(); }
+    { extern RcFn d_38e6d8; RC_SAVE(); if (d_38e6d8) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x4287f8ull); c->rip = B + 0x38e6d8ull; d_38e6d8(c); } else rc->call(c, B + 0x38e6d8ull, B + 0x4287f8ull); RC_LOAD(); }
     
     GuestStore<uint8_t>(r[4] + 0x20ull, 0x0ull);
     { std::memset(&v[3], 0, 16); v[3].f[0] = GuestLoad<float>(r[7] + 0x128ull); }
@@ -9345,7 +9355,7 @@ L_4287e4: ;
 L_428854: ;
     r[2] = r[5] + (uint64_t)(-0x59);
     r[1] = r[7];
-    { RC_SAVE(); rc->call(c, B + 0x38e6d8ull, B + 0x428860ull); RC_LOAD(); }
+    { extern RcFn d_38e6d8; RC_SAVE(); if (d_38e6d8) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x428860ull); c->rip = B + 0x38e6d8ull; d_38e6d8(c); } else rc->call(c, B + 0x38e6d8ull, B + 0x428860ull); RC_LOAD(); }
     
     r[1] = GuestLoad<uint64_t>(r[0]);
     r[0] = GuestLoad<uint64_t>(r[1]);
@@ -9513,13 +9523,13 @@ L_428a5c: ;
     { v[0].f[0] = v[0].f[0] + v[1].f[0]; }
     { for (int k = 0; k < 4; ++k) v[6].q[k] ^= v[6].q[k]; }
     { v[0].f[0] = v[0].f[0] + v[6].f[0]; }
-    { RC_SAVE(); rc->call(c, B + 0x11067e6ull, B + 0x428adbull); RC_LOAD(); }
+    { extern RcFn d_11067e6; RC_SAVE(); if (d_11067e6) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x428adbull); c->rip = B + 0x11067e6ull; d_11067e6(c); } else rc->call(c, B + 0x11067e6ull, B + 0x428adbull); RC_LOAD(); }
     { v[7].f[0] = v[7].f[0] * v[8].f[0]; }
     { const float lhs = v[7].f[0]; const float rhs = v[0].f[0]; c->flags &= ~(uint64_t)F_ARITH; if (std::isunordered(lhs, rhs)) c->flags |= F_CF | F_PF | F_ZF; else if (lhs < rhs) c->flags |= F_CF; else if (lhs == rhs) c->flags |= F_ZF; }
     if (Cond(0x6, c->flags)) goto L_428bd6;
     r[2] = r[5] + 0x77ull;
     r[1] = r[3];
-    { RC_SAVE(); rc->call(c, B + 0x38e6d8ull, B + 0x428af5ull); RC_LOAD(); }
+    { extern RcFn d_38e6d8; RC_SAVE(); if (d_38e6d8) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x428af5ull); c->rip = B + 0x38e6d8ull; d_38e6d8(c); } else rc->call(c, B + 0x38e6d8ull, B + 0x428af5ull); RC_LOAD(); }
     
     r[2] = r[0];
     r[1] = r[5] + 0x67ull;
@@ -9779,7 +9789,7 @@ __attribute__((visibility("hidden"))) void f_428e68(CpuContext *c) {
     { c->flags = ArithFlags(c->flags, 1, GuestLoad<uint8_t>(r[0] + 0x198ull), (r[8] & 0xffull), (GuestLoad<uint8_t>(r[0] + 0x198ull) - (r[8] & 0xffull)), 1); }
     if (Cond(0x4, c->flags)) goto L_428ee1;
     r[2] = r[5] + 0x30ull;
-    { RC_SAVE(); rc->call(c, B + 0x38e6d8ull, B + 0x428e9aull); RC_LOAD(); }
+    { extern RcFn d_38e6d8; RC_SAVE(); if (d_38e6d8) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x428e9aull); c->rip = B + 0x38e6d8ull; d_38e6d8(c); } else rc->call(c, B + 0x38e6d8ull, B + 0x428e9aull); RC_LOAD(); }
     
     r[8] = (uint32_t)(0x1ull);
     r[1] = GuestLoad<uint64_t>(r[3] + 0x18ull);
@@ -9788,7 +9798,7 @@ __attribute__((visibility("hidden"))) void f_428e68(CpuContext *c) {
     if (Cond(0x5, c->flags)) goto L_428ee1;
     r[2] = r[5] + 0x28ull;
     r[1] = r[3];
-    { RC_SAVE(); rc->call(c, B + 0x38e6d8ull, B + 0x428ebdull); RC_LOAD(); }
+    { extern RcFn d_38e6d8; RC_SAVE(); if (d_38e6d8) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x428ebdull); c->rip = B + 0x38e6d8ull; d_38e6d8(c); } else rc->call(c, B + 0x38e6d8ull, B + 0x428ebdull); RC_LOAD(); }
     
     GuestStore<uint32_t>(r[5] + 0x18ull, 0x3ull);
     r[2] = r[0];
@@ -9904,7 +9914,7 @@ __attribute__((visibility("hidden"))) void f_428f84(CpuContext *c) {
     { v[2].f[0] = v[2].f[0] * v[2].f[0]; }
     { v[0].f[0] = v[0].f[0] + v[1].f[0]; }
     { v[0].f[0] = v[0].f[0] + v[2].f[0]; }
-    { RC_SAVE(); rc->call(c, B + 0x11067e6ull, B + 0x429035ull); RC_LOAD(); }
+    { extern RcFn d_11067e6; RC_SAVE(); if (d_11067e6) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x429035ull); c->rip = B + 0x11067e6ull; d_11067e6(c); } else rc->call(c, B + 0x11067e6ull, B + 0x429035ull); RC_LOAD(); }
     r[0] = GuestLoad<uint64_t>(r[3]);
     r[1] = GuestLoad<uint64_t>(r[5] + 0x10ull);
     { std::memset(&v[1], 0, 16); v[1].f[0] = GuestLoad<float>(r[0] + 0xa0ull); }
@@ -11806,7 +11816,7 @@ L_42a841: ;
     { c->flags = ArithFlags(c->flags, 2, (r[7] & 0xffull), 0x1ull, ((r[7] & 0xffull) & 0x1ull), 1); }
     if (Cond(0x4, c->flags)) goto L_42a857;
     r[1] = r[3];
-    { RC_SAVE(); rc->call(c, B + 0x9ae58ull, B + 0x42a857ull); RC_LOAD(); }
+    { extern RcFn d_9ae58; RC_SAVE(); if (d_9ae58) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42a857ull); c->rip = B + 0x9ae58ull; d_9ae58(c); } else rc->call(c, B + 0x9ae58ull, B + 0x42a857ull); RC_LOAD(); }
 L_42a857: ;
     r[0] = r[3];
     r[3] = GuestLoad<uint64_t>(r[4] + 0x48ull);
@@ -11897,7 +11907,7 @@ L_42a939: ;
     { c->flags = ArithFlags(c->flags, 2, (r[7] & 0xffull), 0x1ull, ((r[7] & 0xffull) & 0x1ull), 1); }
     if (Cond(0x4, c->flags)) goto L_42a94f;
     r[1] = r[3];
-    { RC_SAVE(); rc->call(c, B + 0x9ae58ull, B + 0x42a94full); RC_LOAD(); }
+    { extern RcFn d_9ae58; RC_SAVE(); if (d_9ae58) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42a94full); c->rip = B + 0x9ae58ull; d_9ae58(c); } else rc->call(c, B + 0x9ae58ull, B + 0x42a94full); RC_LOAD(); }
 L_42a94f: ;
     r[0] = r[3];
     r[3] = GuestLoad<uint64_t>(r[4] + 0x48ull);
@@ -12033,7 +12043,7 @@ L_42a9f0: ;
     { const uint64_t t = GuestLoad<uint64_t>(r[0] + 0x268ull); RC_SAVE(); rc->call(c, t, B + 0x42ab60ull); RC_LOAD(); }
     { std::memcpy(&v[1], &v[0], 16); }
     { std::memcpy(&v[0], &v[6], 16); }
-    { RC_SAVE(); rc->call(c, B + 0x9c46e8ull, B + 0x42ab6bull); RC_LOAD(); }
+    { extern RcFn d_9c46e8; RC_SAVE(); if (d_9c46e8) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42ab6bull); c->rip = B + 0x9c46e8ull; d_9c46e8(c); } else rc->call(c, B + 0x9c46e8ull, B + 0x42ab6bull); RC_LOAD(); }
     { for (int k = 0; k < 4; ++k) v[5].q[k] ^= v[5].q[k]; }
     { c->rip = B + 0x42ab6eull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* cvtss2sd xmm5, xmm0 */
     { Vec256 t; GuestLoadV(t, (uint64_t)(B + 0x16b5410ull)); for (int k = 0; k < 4; ++k) v[5].q[k] &= t.q[k]; }
@@ -12363,7 +12373,7 @@ __attribute__((visibility("hidden"))) void f_42ae5c(CpuContext *c) {
     r[1] = r[5] + 0x260ull;
     { extern RcFn d_9c418c; RC_SAVE(); if (d_9c418c) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42b150ull); c->rip = B + 0x9c418cull; d_9c418c(c); } else rc->call(c, B + 0x9c418cull, B + 0x42b150ull); RC_LOAD(); }
     { std::memset(&v[1], 0, 16); v[1].f[0] = GuestLoad<float>(r[5] + 0x650ull); }
-    { RC_SAVE(); rc->call(c, B + 0x9c46e8ull, B + 0x42b15dull); RC_LOAD(); }
+    { extern RcFn d_9c46e8; RC_SAVE(); if (d_9c46e8) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42b15dull); c->rip = B + 0x9c46e8ull; d_9c46e8(c); } else rc->call(c, B + 0x9c46e8ull, B + 0x42b15dull); RC_LOAD(); }
     { for (int k = 0; k < 4; ++k) v[5].q[k] ^= v[5].q[k]; }
     { c->rip = B + 0x42b160ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* cvtss2sd xmm5, xmm0 */
     { Vec256 t; GuestLoadV(t, (uint64_t)(B + 0x16b5410ull)); for (int k = 0; k < 4; ++k) v[5].q[k] &= t.q[k]; }
@@ -12394,7 +12404,7 @@ L_42b1cb: ;
     r[1] = r[4] + 0x60ull;
     { extern RcFn d_9c418c; RC_SAVE(); if (d_9c418c) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42b1e3ull); c->rip = B + 0x9c418cull; d_9c418c(c); } else rc->call(c, B + 0x9c418cull, B + 0x42b1e3ull); RC_LOAD(); }
     { std::memcpy(&v[1], &v[14], 16); }
-    { RC_SAVE(); rc->call(c, B + 0x9c46e8ull, B + 0x42b1ecull); RC_LOAD(); }
+    { extern RcFn d_9c46e8; RC_SAVE(); if (d_9c46e8) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42b1ecull); c->rip = B + 0x9c46e8ull; d_9c46e8(c); } else rc->call(c, B + 0x9c46e8ull, B + 0x42b1ecull); RC_LOAD(); }
     { for (int k = 0; k < 4; ++k) v[5].q[k] ^= v[5].q[k]; }
     { c->rip = B + 0x42b1efull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* cvtss2sd xmm5, xmm0 */
     { Vec256 t; GuestLoadV(t, (uint64_t)(B + 0x16b5410ull)); for (int k = 0; k < 4; ++k) v[5].q[k] &= t.q[k]; }
@@ -12424,7 +12434,7 @@ L_42b20e: ;
     r[0] = GuestLoad<uint64_t>(r[1]);
     { const uint64_t t = GuestLoad<uint64_t>(r[0] + 0x90ull); RC_SAVE(); rc->call(c, t, B + 0x42b266ull); RC_LOAD(); }
     { std::memcpy(&v[1], &v[8], 16); }
-    { RC_SAVE(); rc->call(c, B + 0x522c60ull, B + 0x42b26full); RC_LOAD(); }
+    { extern RcFn d_522c60; RC_SAVE(); if (d_522c60) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42b26full); c->rip = B + 0x522c60ull; d_522c60(c); } else rc->call(c, B + 0x522c60ull, B + 0x42b26full); RC_LOAD(); }
     { std::memcpy(&v[2], &v[6], 16); }
     { v[2].f[0] = v[2].f[0] + v[8].f[0]; }
     GuestStore<float>(r[4] + 0x38ull, v[10].f[0]);
@@ -12445,7 +12455,7 @@ L_42b20e: ;
     { std::memset(&v[2], 0, 16); v[2].f[0] = GuestLoad<float>(r[4] + 0x58ull); }
     { v[2].f[0] = v[2].f[0] * v[2].f[0]; }
     { v[0].f[0] = v[0].f[0] + v[2].f[0]; }
-    { RC_SAVE(); rc->call(c, B + 0x11067e6ull, B + 0x42b2d2ull); RC_LOAD(); }
+    { extern RcFn d_11067e6; RC_SAVE(); if (d_11067e6) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42b2d2ull); c->rip = B + 0x11067e6ull; d_11067e6(c); } else rc->call(c, B + 0x11067e6ull, B + 0x42b2d2ull); RC_LOAD(); }
     { std::memset(&v[1], 0, 16); v[1].f[0] = GuestLoad<float>(r[4] + 0x60ull); }
     { v[1].f[0] = v[1].f[0] * v[0].f[0]; }
     { std::memset(&v[2], 0, 16); v[2].f[0] = GuestLoad<float>(r[4] + 0x64ull); }
@@ -12468,21 +12478,21 @@ L_42b20e: ;
 L_42b331: ;
     r[3] = r[6] + 0x140ull;
     r[1] = r[7];
-    { RC_SAVE(); rc->call(c, B + 0x38e59cull, B + 0x42b340ull); RC_LOAD(); }
+    { extern RcFn d_38e59c; RC_SAVE(); if (d_38e59c) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42b340ull); c->rip = B + 0x38e59cull; d_38e59c(c); } else rc->call(c, B + 0x38e59cull, B + 0x42b340ull); RC_LOAD(); }
     { std::memcpy(&v[7], &v[0], 16); }
     { v[7].f[0] = v[7].f[0] * v[8].f[0]; }
     r[1] = r[7];
-    { RC_SAVE(); rc->call(c, B + 0x38e538ull, B + 0x42b350ull); RC_LOAD(); }
+    { extern RcFn d_38e538; RC_SAVE(); if (d_38e538) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42b350ull); c->rip = B + 0x38e538ull; d_38e538(c); } else rc->call(c, B + 0x38e538ull, B + 0x42b350ull); RC_LOAD(); }
     { std::memcpy(&v[6], &v[0], 16); }
     { v[6].f[0] = v[6].f[0] * v[8].f[0]; }
     r[1] = r[7];
-    { RC_SAVE(); rc->call(c, B + 0x351a30ull, B + 0x42b360ull); RC_LOAD(); }
+    { extern RcFn d_351a30; RC_SAVE(); if (d_351a30) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42b360ull); c->rip = B + 0x351a30ull; d_351a30(c); } else rc->call(c, B + 0x351a30ull, B + 0x42b360ull); RC_LOAD(); }
     { v[0].f[0] = v[0].f[0] * v[15].f[0]; }
     { std::memcpy(&v[3], &v[7], 16); }
     { std::memcpy(&v[2], &v[6], 16); }
     { std::memcpy(&v[1], &v[0], 16); }
     r[1] = r[3];
-    { RC_SAVE(); rc->call(c, B + 0x7181d8ull, B + 0x42b376ull); RC_LOAD(); }
+    { extern RcFn d_7181d8; RC_SAVE(); if (d_7181d8) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42b376ull); c->rip = B + 0x7181d8ull; d_7181d8(c); } else rc->call(c, B + 0x7181d8ull, B + 0x42b376ull); RC_LOAD(); }
     { std::memset(&v[4], 0, 16); v[4].f[0] = GuestLoad<float>(r[4] + 0x60ull); }
     { v[4].f[0] = v[4].f[0] * GuestLoad<float>(r[3]); }
     { std::memset(&v[0], 0, 16); v[0].f[0] = GuestLoad<float>(r[4] + 0x64ull); }
@@ -12713,7 +12723,7 @@ L_42b696: ;
     { const uint64_t t = GuestLoad<uint64_t>(r[0] + 0x90ull); RC_SAVE(); rc->call(c, t, B + 0x42b815ull); RC_LOAD(); }
     r[7] = (r[7] & ~0xffull) | (((r[0] & 0xffull)) & 0xffull);
     { std::memcpy(&v[1], &v[8], 16); }
-    { RC_SAVE(); rc->call(c, B + 0x522c60ull, B + 0x42b821ull); RC_LOAD(); }
+    { extern RcFn d_522c60; RC_SAVE(); if (d_522c60) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42b821ull); c->rip = B + 0x522c60ull; d_522c60(c); } else rc->call(c, B + 0x522c60ull, B + 0x42b821ull); RC_LOAD(); }
     { std::memcpy(&v[6], &v[0], 16); }
     r[0] = GuestLoad<uint64_t>(r[3]);
     r[2] = r[5] + 0x2e0ull;
@@ -13080,7 +13090,7 @@ __attribute__((visibility("hidden"))) void f_42bd50(CpuContext *c) {
 L_42be17: ;
     r[2] = r[5] + 0xa0ull;
     r[1] = r[5] + (uint64_t)(-0x80);
-    { RC_SAVE(); rc->call(c, B + 0xbd3e8ull, B + 0x42be27ull); RC_LOAD(); }
+    { extern RcFn d_bd3e8; RC_SAVE(); if (d_bd3e8) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42be27ull); c->rip = B + 0xbd3e8ull; d_bd3e8(c); } else rc->call(c, B + 0xbd3e8ull, B + 0x42be27ull); RC_LOAD(); }
     r[7] = GuestLoad<uint64_t>(r[0]);
     r[1] = GuestLoad<uint64_t>(r[5] + (uint64_t)(-0x80));
     { c->flags = ArithFlags(c->flags, 2, r[1], r[1], (r[1] & r[1]), 8); }
@@ -13096,7 +13106,7 @@ L_42be17: ;
 L_42be4e: ;
     r[2] = r[4] + 0x30ull;
     r[1] = r[7];
-    { RC_SAVE(); rc->call(c, B + 0xc9d10ull, B + 0x42be5bull); RC_LOAD(); }
+    { extern RcFn d_c9d10; RC_SAVE(); if (d_c9d10) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42be5bull); c->rip = B + 0xc9d10ull; d_c9d10(c); } else rc->call(c, B + 0xc9d10ull, B + 0x42be5bull); RC_LOAD(); }
     
     r[1] = GuestLoad<uint64_t>(r[0]);
     r[0] = GuestLoad<uint64_t>(r[1]);
@@ -13119,11 +13129,11 @@ L_42be91: ;
     if (Cond(0x4, c->flags)) goto L_42c16c;
     r[2] = r[4] + 0x28ull;
     r[1] = r[7];
-    { RC_SAVE(); rc->call(c, B + 0xc9d10ull, B + 0x42bea7ull); RC_LOAD(); }
+    { extern RcFn d_c9d10; RC_SAVE(); if (d_c9d10) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42bea7ull); c->rip = B + 0xc9d10ull; d_c9d10(c); } else rc->call(c, B + 0xc9d10ull, B + 0x42bea7ull); RC_LOAD(); }
     
     r[2] = r[0];
     r[1] = r[4] + 0x20ull;
-    { RC_SAVE(); rc->call(c, B + 0xbd3e8ull, B + 0x42beb5ull); RC_LOAD(); }
+    { extern RcFn d_bd3e8; RC_SAVE(); if (d_bd3e8) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42beb5ull); c->rip = B + 0xbd3e8ull; d_bd3e8(c); } else rc->call(c, B + 0xbd3e8ull, B + 0x42beb5ull); RC_LOAD(); }
     r[6] = GuestLoad<uint64_t>(r[0]);
     r[1] = GuestLoad<uint64_t>(r[4] + 0x20ull);
     { c->flags = ArithFlags(c->flags, 2, r[1], r[1], (r[1] & r[1]), 8); }
@@ -13278,7 +13288,7 @@ L_42c06e: ;
 L_42c105: ;
     r[2] = r[5] + 0xa0ull;
     r[1] = r[5] + 0xb8ull;
-    { RC_SAVE(); rc->call(c, B + 0xbd3e8ull, B + 0x42c118ull); RC_LOAD(); }
+    { extern RcFn d_bd3e8; RC_SAVE(); if (d_bd3e8) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42c118ull); c->rip = B + 0xbd3e8ull; d_bd3e8(c); } else rc->call(c, B + 0xbd3e8ull, B + 0x42c118ull); RC_LOAD(); }
     r[0] = GuestLoad<uint64_t>(r[5] + 0xb8ull);
     { std::memset(&v[0], 0, 16); v[0].f[0] = GuestLoad<float>(r[0] + 0x1cull); }
     { v[0].f[0] = v[0].f[0] * GuestLoad<float>((uint64_t)(B + 0x16b4bc0ull)); }
@@ -13427,7 +13437,7 @@ __attribute__((visibility("hidden"))) void f_42c33c(CpuContext *c) {
     
     r[2] = r[4] + 0x50ull;
     r[1] = r[0];
-    { RC_SAVE(); rc->call(c, B + 0xbcd4cull, B + 0x42c378ull); RC_LOAD(); }
+    { extern RcFn d_bcd4c; RC_SAVE(); if (d_bcd4c) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42c378ull); c->rip = B + 0xbcd4cull; d_bcd4c(c); } else rc->call(c, B + 0xbcd4cull, B + 0x42c378ull); RC_LOAD(); }
     r[0] = GuestLoad<uint64_t>(r[4] + 0x50ull);
     GuestStore<uint64_t>(r[3], r[0]);
     { c->flags = ArithFlags(c->flags, 2, r[0], r[0], (r[0] & r[0]), 8); }
@@ -13465,6 +13475,16 @@ L_42c3d9: ;
     RC_SAVE(); c->rip = B + 0x42c3e3ull; return;
 }
 
+__attribute__((visibility("hidden"))) void f_42c3f8(CpuContext *c) {
+    const uint64_t B = rc->image_base;
+    uint64_t r[16];
+    Vec256 v[16];
+    RC_LOAD();
+    GuestStore<uint32_t>(r[1] + 0x8cull, (r[2] & 0xffffffffull));
+    { const uint64_t t = GuestLoad<uint64_t>(r[RSP]); r[RSP] += 8; c->rip = t; RC_SAVE(); return; }
+    RC_SAVE(); c->rip = B + 0x42c3ffull; return;
+}
+
 __attribute__((visibility("hidden"))) void f_42c554(CpuContext *c) {
     const uint64_t B = rc->image_base;
     uint64_t r[16];
@@ -13474,7 +13494,7 @@ __attribute__((visibility("hidden"))) void f_42c554(CpuContext *c) {
     { c->flags = ArithFlags(c->flags, 1, r[4], 0x20ull, (r[4] - 0x20ull), 8); r[4] = (r[4] - 0x20ull); }
     r[3] = r[1];
     r[1] = r[4] + 0x30ull;
-    { RC_SAVE(); rc->call(c, B + 0x1db430ull, B + 0x42c567ull); RC_LOAD(); }
+    { extern RcFn d_1db430; RC_SAVE(); if (d_1db430) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42c567ull); c->rip = B + 0x1db430ull; d_1db430(c); } else rc->call(c, B + 0x1db430ull, B + 0x42c567ull); RC_LOAD(); }
     r[0] = (uint32_t)(GuestLoad<uint16_t>(r[4] + 0x30ull));
     GuestStore<uint16_t>(r[3] + 0xacull, (r[0] & 0xffffull));
     { c->flags = ArithFlags(c->flags, 0, r[4], 0x20ull, (r[4] + 0x20ull), 8); r[4] = (r[4] + 0x20ull); }
@@ -13492,7 +13512,7 @@ __attribute__((visibility("hidden"))) void f_42c57c(CpuContext *c) {
     { c->flags = ArithFlags(c->flags, 1, r[4], 0x20ull, (r[4] - 0x20ull), 8); r[4] = (r[4] - 0x20ull); }
     r[3] = r[1];
     r[1] = r[4] + 0x30ull;
-    { RC_SAVE(); rc->call(c, B + 0x1db430ull, B + 0x42c58full); RC_LOAD(); }
+    { extern RcFn d_1db430; RC_SAVE(); if (d_1db430) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42c58full); c->rip = B + 0x1db430ull; d_1db430(c); } else rc->call(c, B + 0x1db430ull, B + 0x42c58full); RC_LOAD(); }
     r[0] = (uint32_t)(GuestLoad<uint16_t>(r[4] + 0x30ull));
     GuestStore<uint16_t>(r[3] + 0xaeull, (r[0] & 0xffffull));
     { c->flags = ArithFlags(c->flags, 0, r[4], 0x20ull, (r[4] + 0x20ull), 8); r[4] = (r[4] + 0x20ull); }
@@ -13510,7 +13530,7 @@ __attribute__((visibility("hidden"))) void f_42c5a4(CpuContext *c) {
     { c->flags = ArithFlags(c->flags, 1, r[4], 0x20ull, (r[4] - 0x20ull), 8); r[4] = (r[4] - 0x20ull); }
     r[3] = r[1];
     r[1] = r[4] + 0x30ull;
-    { RC_SAVE(); rc->call(c, B + 0x1db430ull, B + 0x42c5b7ull); RC_LOAD(); }
+    { extern RcFn d_1db430; RC_SAVE(); if (d_1db430) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42c5b7ull); c->rip = B + 0x1db430ull; d_1db430(c); } else rc->call(c, B + 0x1db430ull, B + 0x42c5b7ull); RC_LOAD(); }
     r[0] = (uint32_t)(GuestLoad<uint16_t>(r[4] + 0x30ull));
     GuestStore<uint16_t>(r[3] + 0xb0ull, (r[0] & 0xffffull));
     { c->flags = ArithFlags(c->flags, 0, r[4], 0x20ull, (r[4] + 0x20ull), 8); r[4] = (r[4] + 0x20ull); }
@@ -13528,7 +13548,7 @@ __attribute__((visibility("hidden"))) void f_42c5cc(CpuContext *c) {
     { c->flags = ArithFlags(c->flags, 1, r[4], 0x20ull, (r[4] - 0x20ull), 8); r[4] = (r[4] - 0x20ull); }
     r[3] = r[1];
     r[1] = r[4] + 0x30ull;
-    { RC_SAVE(); rc->call(c, B + 0x1db430ull, B + 0x42c5dfull); RC_LOAD(); }
+    { extern RcFn d_1db430; RC_SAVE(); if (d_1db430) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42c5dfull); c->rip = B + 0x1db430ull; d_1db430(c); } else rc->call(c, B + 0x1db430ull, B + 0x42c5dfull); RC_LOAD(); }
     r[0] = (uint32_t)(GuestLoad<uint16_t>(r[4] + 0x30ull));
     GuestStore<uint16_t>(r[3] + 0xb2ull, (r[0] & 0xffffull));
     { c->flags = ArithFlags(c->flags, 0, r[4], 0x20ull, (r[4] + 0x20ull), 8); r[4] = (r[4] + 0x20ull); }
@@ -13546,13 +13566,31 @@ __attribute__((visibility("hidden"))) void f_42c5f4(CpuContext *c) {
     { c->flags = ArithFlags(c->flags, 1, r[4], 0x20ull, (r[4] - 0x20ull), 8); r[4] = (r[4] - 0x20ull); }
     r[3] = r[1];
     r[1] = r[4] + 0x30ull;
-    { RC_SAVE(); rc->call(c, B + 0x1db430ull, B + 0x42c607ull); RC_LOAD(); }
+    { extern RcFn d_1db430; RC_SAVE(); if (d_1db430) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42c607ull); c->rip = B + 0x1db430ull; d_1db430(c); } else rc->call(c, B + 0x1db430ull, B + 0x42c607ull); RC_LOAD(); }
     r[0] = (uint32_t)(GuestLoad<uint16_t>(r[4] + 0x30ull));
     GuestStore<uint16_t>(r[3] + 0xb4ull, (r[0] & 0xffffull));
     { c->flags = ArithFlags(c->flags, 0, r[4], 0x20ull, (r[4] + 0x20ull), 8); r[4] = (r[4] + 0x20ull); }
     r[3] = ({ uint64_t v = GuestLoad<uint64_t>(r[RSP]); r[RSP] += 8; v; });
     { const uint64_t t = GuestLoad<uint64_t>(r[RSP]); r[RSP] += 8; c->rip = t; RC_SAVE(); return; }
     RC_SAVE(); c->rip = B + 0x42c619ull; return;
+}
+
+__attribute__((visibility("hidden"))) void f_42c61c(CpuContext *c) {
+    const uint64_t B = rc->image_base;
+    uint64_t r[16];
+    Vec256 v[16];
+    RC_LOAD();
+    r[2] = (uint32_t)(GuestLoad<uint16_t>(r[1] + 0xb4ull));
+    r[8] = (uint32_t)(0x3ffull);
+    r[1] = (uint32_t)((r[2] & 0xffffffffull));
+    { c->flags = ArithFlags(c->flags, 2, (r[1] & 0xffffffffull), (r[8] & 0xffffffffull), ((r[1] & 0xffffffffull) & (r[8] & 0xffffffffull)), 4); r[1] = (uint32_t)(((r[1] & 0xffffffffull) & (r[8] & 0xffffffffull))); }
+    { c->flags = ArithFlags(c->flags, 2, (r[2] & 0xffffffffull), 0x7c00ull, ((r[2] & 0xffffffffull) & 0x7c00ull), 4); }
+    if (Cond(0x4, c->flags)) { RC_SAVE(); c->rip = B + 0x42c640ull; rc->tail(c); return; }
+    r[0] = (uint32_t)((r[2] & 0xffffffffull));
+    { r[0] = (uint32_t)((((r[0] & 0xffffffffull) & 0xffffffffull) >> (0xaull & 31))); }
+    { c->flags = ArithFlags(c->flags, 2, (r[0] & 0xffffffffull), 0x1full, ((r[0] & 0xffffffffull) & 0x1full), 4); r[0] = (uint32_t)(((r[0] & 0xffffffffull) & 0x1full)); }
+    { RC_SAVE(); c->rip = B + 0x42c65dull; rc->tail(c); return; }
+    RC_SAVE(); c->rip = B + 0x42c640ull; return;
 }
 
 __attribute__((visibility("hidden"))) void f_42c680(CpuContext *c) {
@@ -13564,13 +13602,31 @@ __attribute__((visibility("hidden"))) void f_42c680(CpuContext *c) {
     { c->flags = ArithFlags(c->flags, 1, r[4], 0x20ull, (r[4] - 0x20ull), 8); r[4] = (r[4] - 0x20ull); }
     r[3] = r[1];
     r[1] = r[4] + 0x30ull;
-    { RC_SAVE(); rc->call(c, B + 0x1db430ull, B + 0x42c693ull); RC_LOAD(); }
+    { extern RcFn d_1db430; RC_SAVE(); if (d_1db430) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42c693ull); c->rip = B + 0x1db430ull; d_1db430(c); } else rc->call(c, B + 0x1db430ull, B + 0x42c693ull); RC_LOAD(); }
     r[0] = (uint32_t)(GuestLoad<uint16_t>(r[4] + 0x30ull));
     GuestStore<uint16_t>(r[3] + 0xb6ull, (r[0] & 0xffffull));
     { c->flags = ArithFlags(c->flags, 0, r[4], 0x20ull, (r[4] + 0x20ull), 8); r[4] = (r[4] + 0x20ull); }
     r[3] = ({ uint64_t v = GuestLoad<uint64_t>(r[RSP]); r[RSP] += 8; v; });
     { const uint64_t t = GuestLoad<uint64_t>(r[RSP]); r[RSP] += 8; c->rip = t; RC_SAVE(); return; }
     RC_SAVE(); c->rip = B + 0x42c6a5ull; return;
+}
+
+__attribute__((visibility("hidden"))) void f_42c6a8(CpuContext *c) {
+    const uint64_t B = rc->image_base;
+    uint64_t r[16];
+    Vec256 v[16];
+    RC_LOAD();
+    r[2] = (uint32_t)(GuestLoad<uint16_t>(r[1] + 0xb6ull));
+    r[8] = (uint32_t)(0x3ffull);
+    r[1] = (uint32_t)((r[2] & 0xffffffffull));
+    { c->flags = ArithFlags(c->flags, 2, (r[1] & 0xffffffffull), (r[8] & 0xffffffffull), ((r[1] & 0xffffffffull) & (r[8] & 0xffffffffull)), 4); r[1] = (uint32_t)(((r[1] & 0xffffffffull) & (r[8] & 0xffffffffull))); }
+    { c->flags = ArithFlags(c->flags, 2, (r[2] & 0xffffffffull), 0x7c00ull, ((r[2] & 0xffffffffull) & 0x7c00ull), 4); }
+    if (Cond(0x4, c->flags)) { RC_SAVE(); c->rip = B + 0x42c6ccull; rc->tail(c); return; }
+    r[0] = (uint32_t)((r[2] & 0xffffffffull));
+    { r[0] = (uint32_t)((((r[0] & 0xffffffffull) & 0xffffffffull) >> (0xaull & 31))); }
+    { c->flags = ArithFlags(c->flags, 2, (r[0] & 0xffffffffull), 0x1full, ((r[0] & 0xffffffffull) & 0x1full), 4); r[0] = (uint32_t)(((r[0] & 0xffffffffull) & 0x1full)); }
+    { RC_SAVE(); c->rip = B + 0x42c6e9ull; rc->tail(c); return; }
+    RC_SAVE(); c->rip = B + 0x42c6ccull; return;
 }
 
 __attribute__((visibility("hidden"))) void f_42c70c(CpuContext *c) {
@@ -13582,7 +13638,7 @@ __attribute__((visibility("hidden"))) void f_42c70c(CpuContext *c) {
     { c->flags = ArithFlags(c->flags, 1, r[4], 0x20ull, (r[4] - 0x20ull), 8); r[4] = (r[4] - 0x20ull); }
     r[3] = r[1];
     r[1] = r[4] + 0x30ull;
-    { RC_SAVE(); rc->call(c, B + 0x1db430ull, B + 0x42c71full); RC_LOAD(); }
+    { extern RcFn d_1db430; RC_SAVE(); if (d_1db430) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42c71full); c->rip = B + 0x1db430ull; d_1db430(c); } else rc->call(c, B + 0x1db430ull, B + 0x42c71full); RC_LOAD(); }
     r[0] = (uint32_t)(GuestLoad<uint16_t>(r[4] + 0x30ull));
     GuestStore<uint16_t>(r[3] + 0xb8ull, (r[0] & 0xffffull));
     { c->flags = ArithFlags(c->flags, 0, r[4], 0x20ull, (r[4] + 0x20ull), 8); r[4] = (r[4] + 0x20ull); }
@@ -13600,13 +13656,31 @@ __attribute__((visibility("hidden"))) void f_42c734(CpuContext *c) {
     { c->flags = ArithFlags(c->flags, 1, r[4], 0x20ull, (r[4] - 0x20ull), 8); r[4] = (r[4] - 0x20ull); }
     r[3] = r[1];
     r[1] = r[4] + 0x30ull;
-    { RC_SAVE(); rc->call(c, B + 0x1db430ull, B + 0x42c747ull); RC_LOAD(); }
+    { extern RcFn d_1db430; RC_SAVE(); if (d_1db430) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42c747ull); c->rip = B + 0x1db430ull; d_1db430(c); } else rc->call(c, B + 0x1db430ull, B + 0x42c747ull); RC_LOAD(); }
     r[0] = (uint32_t)(GuestLoad<uint16_t>(r[4] + 0x30ull));
     GuestStore<uint16_t>(r[3] + 0xbaull, (r[0] & 0xffffull));
     { c->flags = ArithFlags(c->flags, 0, r[4], 0x20ull, (r[4] + 0x20ull), 8); r[4] = (r[4] + 0x20ull); }
     r[3] = ({ uint64_t v = GuestLoad<uint64_t>(r[RSP]); r[RSP] += 8; v; });
     { const uint64_t t = GuestLoad<uint64_t>(r[RSP]); r[RSP] += 8; c->rip = t; RC_SAVE(); return; }
     RC_SAVE(); c->rip = B + 0x42c759ull; return;
+}
+
+__attribute__((visibility("hidden"))) void f_42c75c(CpuContext *c) {
+    const uint64_t B = rc->image_base;
+    uint64_t r[16];
+    Vec256 v[16];
+    RC_LOAD();
+    r[2] = (uint32_t)(GuestLoad<uint16_t>(r[1] + 0xbaull));
+    r[8] = (uint32_t)(0x3ffull);
+    r[1] = (uint32_t)((r[2] & 0xffffffffull));
+    { c->flags = ArithFlags(c->flags, 2, (r[1] & 0xffffffffull), (r[8] & 0xffffffffull), ((r[1] & 0xffffffffull) & (r[8] & 0xffffffffull)), 4); r[1] = (uint32_t)(((r[1] & 0xffffffffull) & (r[8] & 0xffffffffull))); }
+    { c->flags = ArithFlags(c->flags, 2, (r[2] & 0xffffffffull), 0x7c00ull, ((r[2] & 0xffffffffull) & 0x7c00ull), 4); }
+    if (Cond(0x4, c->flags)) { RC_SAVE(); c->rip = B + 0x42c780ull; rc->tail(c); return; }
+    r[0] = (uint32_t)((r[2] & 0xffffffffull));
+    { r[0] = (uint32_t)((((r[0] & 0xffffffffull) & 0xffffffffull) >> (0xaull & 31))); }
+    { c->flags = ArithFlags(c->flags, 2, (r[0] & 0xffffffffull), 0x1full, ((r[0] & 0xffffffffull) & 0x1full), 4); r[0] = (uint32_t)(((r[0] & 0xffffffffull) & 0x1full)); }
+    { RC_SAVE(); c->rip = B + 0x42c79dull; rc->tail(c); return; }
+    RC_SAVE(); c->rip = B + 0x42c780ull; return;
 }
 
 __attribute__((visibility("hidden"))) void f_42c7c0(CpuContext *c) {
@@ -13618,13 +13692,31 @@ __attribute__((visibility("hidden"))) void f_42c7c0(CpuContext *c) {
     { c->flags = ArithFlags(c->flags, 1, r[4], 0x20ull, (r[4] - 0x20ull), 8); r[4] = (r[4] - 0x20ull); }
     r[3] = r[1];
     r[1] = r[4] + 0x30ull;
-    { RC_SAVE(); rc->call(c, B + 0x1db430ull, B + 0x42c7d3ull); RC_LOAD(); }
+    { extern RcFn d_1db430; RC_SAVE(); if (d_1db430) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42c7d3ull); c->rip = B + 0x1db430ull; d_1db430(c); } else rc->call(c, B + 0x1db430ull, B + 0x42c7d3ull); RC_LOAD(); }
     r[0] = (uint32_t)(GuestLoad<uint16_t>(r[4] + 0x30ull));
     GuestStore<uint16_t>(r[3] + 0xbeull, (r[0] & 0xffffull));
     { c->flags = ArithFlags(c->flags, 0, r[4], 0x20ull, (r[4] + 0x20ull), 8); r[4] = (r[4] + 0x20ull); }
     r[3] = ({ uint64_t v = GuestLoad<uint64_t>(r[RSP]); r[RSP] += 8; v; });
     { const uint64_t t = GuestLoad<uint64_t>(r[RSP]); r[RSP] += 8; c->rip = t; RC_SAVE(); return; }
     RC_SAVE(); c->rip = B + 0x42c7e5ull; return;
+}
+
+__attribute__((visibility("hidden"))) void f_42c7e8(CpuContext *c) {
+    const uint64_t B = rc->image_base;
+    uint64_t r[16];
+    Vec256 v[16];
+    RC_LOAD();
+    r[2] = (uint32_t)(GuestLoad<uint16_t>(r[1] + 0xbeull));
+    r[8] = (uint32_t)(0x3ffull);
+    r[1] = (uint32_t)((r[2] & 0xffffffffull));
+    { c->flags = ArithFlags(c->flags, 2, (r[1] & 0xffffffffull), (r[8] & 0xffffffffull), ((r[1] & 0xffffffffull) & (r[8] & 0xffffffffull)), 4); r[1] = (uint32_t)(((r[1] & 0xffffffffull) & (r[8] & 0xffffffffull))); }
+    { c->flags = ArithFlags(c->flags, 2, (r[2] & 0xffffffffull), 0x7c00ull, ((r[2] & 0xffffffffull) & 0x7c00ull), 4); }
+    if (Cond(0x4, c->flags)) { RC_SAVE(); c->rip = B + 0x42c80cull; rc->tail(c); return; }
+    r[0] = (uint32_t)((r[2] & 0xffffffffull));
+    { r[0] = (uint32_t)((((r[0] & 0xffffffffull) & 0xffffffffull) >> (0xaull & 31))); }
+    { c->flags = ArithFlags(c->flags, 2, (r[0] & 0xffffffffull), 0x1full, ((r[0] & 0xffffffffull) & 0x1full), 4); r[0] = (uint32_t)(((r[0] & 0xffffffffull) & 0x1full)); }
+    { RC_SAVE(); c->rip = B + 0x42c829ull; rc->tail(c); return; }
+    RC_SAVE(); c->rip = B + 0x42c80cull; return;
 }
 
 __attribute__((visibility("hidden"))) void f_42c918(CpuContext *c) {
@@ -13684,7 +13776,7 @@ L_42c9bd: ;
     { c->flags = ArithFlags(c->flags, 2, (r[6] & 0xffull), 0x1ull, ((r[6] & 0xffull) & 0x1ull), 1); }
     if (Cond(0x4, c->flags)) goto L_42c9d3;
     r[1] = r[7];
-    { RC_SAVE(); rc->call(c, B + 0x9ae58ull, B + 0x42c9d3ull); RC_LOAD(); }
+    { extern RcFn d_9ae58; RC_SAVE(); if (d_9ae58) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42c9d3ull); c->rip = B + 0x9ae58ull; d_9ae58(c); } else rc->call(c, B + 0x9ae58ull, B + 0x42c9d3ull); RC_LOAD(); }
 L_42c9d3: ;
     r[0] = r[7];
     r[3] = GuestLoad<uint64_t>(r[4] + 0x48ull);
@@ -14572,10 +14664,10 @@ __attribute__((visibility("hidden"))) void f_42d4b0(CpuContext *c) {
     { c->flags = ArithFlags(c->flags, 1, r[4], 0x20ull, (r[4] - 0x20ull), 8); r[4] = (r[4] - 0x20ull); }
     r[1] = r[2];
     r[3] = r[8];
-    { RC_SAVE(); rc->call(c, B + 0x38e538ull, B + 0x42d4c1ull); RC_LOAD(); }
+    { extern RcFn d_38e538; RC_SAVE(); if (d_38e538) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42d4c1ull); c->rip = B + 0x38e538ull; d_38e538(c); } else rc->call(c, B + 0x38e538ull, B + 0x42d4c1ull); RC_LOAD(); }
     r[1] = r[4] + 0x40ull;
     { std::memcpy(&v[1], &v[0], 16); }
-    { RC_SAVE(); rc->call(c, B + 0x1db430ull, B + 0x42d4ceull); RC_LOAD(); }
+    { extern RcFn d_1db430; RC_SAVE(); if (d_1db430) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42d4ceull); c->rip = B + 0x1db430ull; d_1db430(c); } else rc->call(c, B + 0x1db430ull, B + 0x42d4ceull); RC_LOAD(); }
     r[0] = (uint32_t)(GuestLoad<uint16_t>(r[4] + 0x40ull));
     GuestStore<uint16_t>(r[3] + 0xacull, (r[0] & 0xffffull));
     { c->flags = ArithFlags(c->flags, 0, r[4], 0x20ull, (r[4] + 0x20ull), 8); r[4] = (r[4] + 0x20ull); }
@@ -14692,10 +14784,10 @@ __attribute__((visibility("hidden"))) void f_42d5f0(CpuContext *c) {
     { c->flags = ArithFlags(c->flags, 1, r[4], 0x20ull, (r[4] - 0x20ull), 8); r[4] = (r[4] - 0x20ull); }
     r[1] = r[2];
     r[3] = r[8];
-    { RC_SAVE(); rc->call(c, B + 0x38e59cull, B + 0x42d601ull); RC_LOAD(); }
+    { extern RcFn d_38e59c; RC_SAVE(); if (d_38e59c) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42d601ull); c->rip = B + 0x38e59cull; d_38e59c(c); } else rc->call(c, B + 0x38e59cull, B + 0x42d601ull); RC_LOAD(); }
     r[1] = r[4] + 0x40ull;
     { std::memcpy(&v[1], &v[0], 16); }
-    { RC_SAVE(); rc->call(c, B + 0x1db430ull, B + 0x42d60eull); RC_LOAD(); }
+    { extern RcFn d_1db430; RC_SAVE(); if (d_1db430) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42d60eull); c->rip = B + 0x1db430ull; d_1db430(c); } else rc->call(c, B + 0x1db430ull, B + 0x42d60eull); RC_LOAD(); }
     r[0] = (uint32_t)(GuestLoad<uint16_t>(r[4] + 0x40ull));
     GuestStore<uint16_t>(r[3] + 0xaeull, (r[0] & 0xffffull));
     { c->flags = ArithFlags(c->flags, 0, r[4], 0x20ull, (r[4] + 0x20ull), 8); r[4] = (r[4] + 0x20ull); }
@@ -14812,10 +14904,10 @@ __attribute__((visibility("hidden"))) void f_42d730(CpuContext *c) {
     { c->flags = ArithFlags(c->flags, 1, r[4], 0x20ull, (r[4] - 0x20ull), 8); r[4] = (r[4] - 0x20ull); }
     r[1] = r[2];
     r[3] = r[8];
-    { RC_SAVE(); rc->call(c, B + 0x38e600ull, B + 0x42d741ull); RC_LOAD(); }
+    { extern RcFn d_38e600; RC_SAVE(); if (d_38e600) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42d741ull); c->rip = B + 0x38e600ull; d_38e600(c); } else rc->call(c, B + 0x38e600ull, B + 0x42d741ull); RC_LOAD(); }
     r[1] = r[4] + 0x40ull;
     { std::memcpy(&v[1], &v[0], 16); }
-    { RC_SAVE(); rc->call(c, B + 0x1db430ull, B + 0x42d74eull); RC_LOAD(); }
+    { extern RcFn d_1db430; RC_SAVE(); if (d_1db430) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42d74eull); c->rip = B + 0x1db430ull; d_1db430(c); } else rc->call(c, B + 0x1db430ull, B + 0x42d74eull); RC_LOAD(); }
     r[0] = (uint32_t)(GuestLoad<uint16_t>(r[4] + 0x40ull));
     GuestStore<uint16_t>(r[3] + 0xb0ull, (r[0] & 0xffffull));
     { c->flags = ArithFlags(c->flags, 0, r[4], 0x20ull, (r[4] + 0x20ull), 8); r[4] = (r[4] + 0x20ull); }
@@ -14932,10 +15024,10 @@ __attribute__((visibility("hidden"))) void f_42d870(CpuContext *c) {
     { c->flags = ArithFlags(c->flags, 1, r[4], 0x20ull, (r[4] - 0x20ull), 8); r[4] = (r[4] - 0x20ull); }
     r[1] = r[2];
     r[3] = r[8];
-    { RC_SAVE(); rc->call(c, B + 0x351a30ull, B + 0x42d881ull); RC_LOAD(); }
+    { extern RcFn d_351a30; RC_SAVE(); if (d_351a30) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42d881ull); c->rip = B + 0x351a30ull; d_351a30(c); } else rc->call(c, B + 0x351a30ull, B + 0x42d881ull); RC_LOAD(); }
     r[1] = r[4] + 0x40ull;
     { std::memcpy(&v[1], &v[0], 16); }
-    { RC_SAVE(); rc->call(c, B + 0x1db430ull, B + 0x42d88eull); RC_LOAD(); }
+    { extern RcFn d_1db430; RC_SAVE(); if (d_1db430) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42d88eull); c->rip = B + 0x1db430ull; d_1db430(c); } else rc->call(c, B + 0x1db430ull, B + 0x42d88eull); RC_LOAD(); }
     r[0] = (uint32_t)(GuestLoad<uint16_t>(r[4] + 0x40ull));
     GuestStore<uint16_t>(r[3] + 0xb2ull, (r[0] & 0xffffull));
     { c->flags = ArithFlags(c->flags, 0, r[4], 0x20ull, (r[4] + 0x20ull), 8); r[4] = (r[4] + 0x20ull); }
@@ -15052,10 +15144,10 @@ __attribute__((visibility("hidden"))) void f_42d9b0(CpuContext *c) {
     { c->flags = ArithFlags(c->flags, 1, r[4], 0x20ull, (r[4] - 0x20ull), 8); r[4] = (r[4] - 0x20ull); }
     r[1] = r[2];
     r[3] = r[8];
-    { RC_SAVE(); rc->call(c, B + 0x42c61cull, B + 0x42d9c1ull); RC_LOAD(); }
+    { extern RcFn d_42c61c; RC_SAVE(); if (d_42c61c) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42d9c1ull); c->rip = B + 0x42c61cull; d_42c61c(c); } else rc->call(c, B + 0x42c61cull, B + 0x42d9c1ull); RC_LOAD(); }
     r[1] = r[4] + 0x40ull;
     { std::memcpy(&v[1], &v[0], 16); }
-    { RC_SAVE(); rc->call(c, B + 0x1db430ull, B + 0x42d9ceull); RC_LOAD(); }
+    { extern RcFn d_1db430; RC_SAVE(); if (d_1db430) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42d9ceull); c->rip = B + 0x1db430ull; d_1db430(c); } else rc->call(c, B + 0x1db430ull, B + 0x42d9ceull); RC_LOAD(); }
     r[0] = (uint32_t)(GuestLoad<uint16_t>(r[4] + 0x40ull));
     GuestStore<uint16_t>(r[3] + 0xb4ull, (r[0] & 0xffffull));
     { c->flags = ArithFlags(c->flags, 0, r[4], 0x20ull, (r[4] + 0x20ull), 8); r[4] = (r[4] + 0x20ull); }
@@ -15172,10 +15264,10 @@ __attribute__((visibility("hidden"))) void f_42daf0(CpuContext *c) {
     { c->flags = ArithFlags(c->flags, 1, r[4], 0x20ull, (r[4] - 0x20ull), 8); r[4] = (r[4] - 0x20ull); }
     r[1] = r[2];
     r[3] = r[8];
-    { RC_SAVE(); rc->call(c, B + 0x42c6a8ull, B + 0x42db01ull); RC_LOAD(); }
+    { extern RcFn d_42c6a8; RC_SAVE(); if (d_42c6a8) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42db01ull); c->rip = B + 0x42c6a8ull; d_42c6a8(c); } else rc->call(c, B + 0x42c6a8ull, B + 0x42db01ull); RC_LOAD(); }
     r[1] = r[4] + 0x40ull;
     { std::memcpy(&v[1], &v[0], 16); }
-    { RC_SAVE(); rc->call(c, B + 0x1db430ull, B + 0x42db0eull); RC_LOAD(); }
+    { extern RcFn d_1db430; RC_SAVE(); if (d_1db430) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42db0eull); c->rip = B + 0x1db430ull; d_1db430(c); } else rc->call(c, B + 0x1db430ull, B + 0x42db0eull); RC_LOAD(); }
     r[0] = (uint32_t)(GuestLoad<uint16_t>(r[4] + 0x40ull));
     GuestStore<uint16_t>(r[3] + 0xb6ull, (r[0] & 0xffffull));
     { c->flags = ArithFlags(c->flags, 0, r[4], 0x20ull, (r[4] + 0x20ull), 8); r[4] = (r[4] + 0x20ull); }
@@ -15372,10 +15464,10 @@ __attribute__((visibility("hidden"))) void f_42dd30(CpuContext *c) {
     { c->flags = ArithFlags(c->flags, 1, r[4], 0x20ull, (r[4] - 0x20ull), 8); r[4] = (r[4] - 0x20ull); }
     r[1] = r[2];
     r[3] = r[8];
-    { RC_SAVE(); rc->call(c, B + 0x38e664ull, B + 0x42dd41ull); RC_LOAD(); }
+    { extern RcFn d_38e664; RC_SAVE(); if (d_38e664) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42dd41ull); c->rip = B + 0x38e664ull; d_38e664(c); } else rc->call(c, B + 0x38e664ull, B + 0x42dd41ull); RC_LOAD(); }
     r[1] = r[4] + 0x40ull;
     { std::memcpy(&v[1], &v[0], 16); }
-    { RC_SAVE(); rc->call(c, B + 0x1db430ull, B + 0x42dd4eull); RC_LOAD(); }
+    { extern RcFn d_1db430; RC_SAVE(); if (d_1db430) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42dd4eull); c->rip = B + 0x1db430ull; d_1db430(c); } else rc->call(c, B + 0x1db430ull, B + 0x42dd4eull); RC_LOAD(); }
     r[0] = (uint32_t)(GuestLoad<uint16_t>(r[4] + 0x40ull));
     GuestStore<uint16_t>(r[3] + 0xb8ull, (r[0] & 0xffffull));
     { c->flags = ArithFlags(c->flags, 0, r[4], 0x20ull, (r[4] + 0x20ull), 8); r[4] = (r[4] + 0x20ull); }
@@ -16678,10 +16770,10 @@ __attribute__((visibility("hidden"))) void f_42eb84(CpuContext *c) {
     { c->flags = ArithFlags(c->flags, 1, r[4], 0x20ull, (r[4] - 0x20ull), 8); r[4] = (r[4] - 0x20ull); }
     r[1] = r[2];
     r[3] = r[8];
-    { RC_SAVE(); rc->call(c, B + 0x42c7e8ull, B + 0x42eb95ull); RC_LOAD(); }
+    { extern RcFn d_42c7e8; RC_SAVE(); if (d_42c7e8) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42eb95ull); c->rip = B + 0x42c7e8ull; d_42c7e8(c); } else rc->call(c, B + 0x42c7e8ull, B + 0x42eb95ull); RC_LOAD(); }
     r[1] = r[4] + 0x40ull;
     { std::memcpy(&v[1], &v[0], 16); }
-    { RC_SAVE(); rc->call(c, B + 0x1db430ull, B + 0x42eba2ull); RC_LOAD(); }
+    { extern RcFn d_1db430; RC_SAVE(); if (d_1db430) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42eba2ull); c->rip = B + 0x1db430ull; d_1db430(c); } else rc->call(c, B + 0x1db430ull, B + 0x42eba2ull); RC_LOAD(); }
     r[0] = (uint32_t)(GuestLoad<uint16_t>(r[4] + 0x40ull));
     GuestStore<uint16_t>(r[3] + 0xbeull, (r[0] & 0xffffull));
     { c->flags = ArithFlags(c->flags, 0, r[4], 0x20ull, (r[4] + 0x20ull), 8); r[4] = (r[4] + 0x20ull); }
@@ -17874,10 +17966,10 @@ __attribute__((visibility("hidden"))) void f_42f968(CpuContext *c) {
     { c->flags = ArithFlags(c->flags, 1, r[4], 0x20ull, (r[4] - 0x20ull), 8); r[4] = (r[4] - 0x20ull); }
     r[1] = r[2];
     r[3] = r[8];
-    { RC_SAVE(); rc->call(c, B + 0x42c75cull, B + 0x42f979ull); RC_LOAD(); }
+    { extern RcFn d_42c75c; RC_SAVE(); if (d_42c75c) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42f979ull); c->rip = B + 0x42c75cull; d_42c75c(c); } else rc->call(c, B + 0x42c75cull, B + 0x42f979ull); RC_LOAD(); }
     r[1] = r[4] + 0x40ull;
     { std::memcpy(&v[1], &v[0], 16); }
-    { RC_SAVE(); rc->call(c, B + 0x1db430ull, B + 0x42f986ull); RC_LOAD(); }
+    { extern RcFn d_1db430; RC_SAVE(); if (d_1db430) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x42f986ull); c->rip = B + 0x1db430ull; d_1db430(c); } else rc->call(c, B + 0x1db430ull, B + 0x42f986ull); RC_LOAD(); }
     r[0] = (uint32_t)(GuestLoad<uint16_t>(r[4] + 0x40ull));
     GuestStore<uint16_t>(r[3] + 0xbaull, (r[0] & 0xffffull));
     { c->flags = ArithFlags(c->flags, 0, r[4], 0x20ull, (r[4] + 0x20ull), 8); r[4] = (r[4] + 0x20ull); }
@@ -20059,7 +20151,7 @@ __attribute__((visibility("hidden"))) void f_43154c(CpuContext *c) {
     { c->flags = ArithFlags(c->flags, 2, (r[3] & 0xffull), 0x1ull, ((r[3] & 0xffull) & 0x1ull), 1); }
     if (Cond(0x4, c->flags)) goto L_431594;
     r[1] = r[7];
-    { RC_SAVE(); rc->call(c, B + 0x9ae58ull, B + 0x431594ull); RC_LOAD(); }
+    { extern RcFn d_9ae58; RC_SAVE(); if (d_9ae58) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x431594ull); c->rip = B + 0x9ae58ull; d_9ae58(c); } else rc->call(c, B + 0x9ae58ull, B + 0x431594ull); RC_LOAD(); }
 L_431594: ;
     r[0] = r[7];
     r[3] = GuestLoad<uint64_t>(r[4] + 0x48ull);
@@ -23051,33 +23143,33 @@ L_4336f6: ;
     GuestStore<uint32_t>(r[3] + 0xa8ull, (r[7] & 0xffffffffull));
     r[1] = r[3] + 0xacull;
     { std::memset(&v[1], 0, 16); v[1].f[0] = GuestLoad<float>((uint64_t)(B + 0x16b4920ull)); }
-    { RC_SAVE(); rc->call(c, B + 0x1db430ull, B + 0x433773ull); RC_LOAD(); }
+    { extern RcFn d_1db430; RC_SAVE(); if (d_1db430) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x433773ull); c->rip = B + 0x1db430ull; d_1db430(c); } else rc->call(c, B + 0x1db430ull, B + 0x433773ull); RC_LOAD(); }
     r[1] = r[3] + 0xaeull;
     { std::memset(&v[1], 0, 16); v[1].f[0] = GuestLoad<float>((uint64_t)(B + 0x16b4998ull)); }
-    { RC_SAVE(); rc->call(c, B + 0x1db430ull, B + 0x433787ull); RC_LOAD(); }
+    { extern RcFn d_1db430; RC_SAVE(); if (d_1db430) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x433787ull); c->rip = B + 0x1db430ull; d_1db430(c); } else rc->call(c, B + 0x1db430ull, B + 0x433787ull); RC_LOAD(); }
     r[1] = r[3] + 0xb0ull;
     { std::memset(&v[1], 0, 16); v[1].f[0] = GuestLoad<float>((uint64_t)(B + 0x16b4460ull)); }
-    { RC_SAVE(); rc->call(c, B + 0x1db430ull, B + 0x43379bull); RC_LOAD(); }
+    { extern RcFn d_1db430; RC_SAVE(); if (d_1db430) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x43379bull); c->rip = B + 0x1db430ull; d_1db430(c); } else rc->call(c, B + 0x1db430ull, B + 0x43379bull); RC_LOAD(); }
     r[1] = r[3] + 0xb2ull;
     { for (int k = 0; k < 4; ++k) v[1].q[k] ^= v[1].q[k]; }
-    { RC_SAVE(); rc->call(c, B + 0x1db430ull, B + 0x4337aaull); RC_LOAD(); }
+    { extern RcFn d_1db430; RC_SAVE(); if (d_1db430) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x4337aaull); c->rip = B + 0x1db430ull; d_1db430(c); } else rc->call(c, B + 0x1db430ull, B + 0x4337aaull); RC_LOAD(); }
     r[1] = r[3] + 0xb4ull;
     { std::memset(&v[1], 0, 16); v[1].f[0] = GuestLoad<float>((uint64_t)(B + 0x16b4a10ull)); }
-    { RC_SAVE(); rc->call(c, B + 0x1db430ull, B + 0x4337beull); RC_LOAD(); }
+    { extern RcFn d_1db430; RC_SAVE(); if (d_1db430) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x4337beull); c->rip = B + 0x1db430ull; d_1db430(c); } else rc->call(c, B + 0x1db430ull, B + 0x4337beull); RC_LOAD(); }
     r[1] = r[3] + 0xb6ull;
     { std::memset(&v[1], 0, 16); v[1].f[0] = GuestLoad<float>((uint64_t)(B + 0x16b4bdcull)); }
-    { RC_SAVE(); rc->call(c, B + 0x1db430ull, B + 0x4337d2ull); RC_LOAD(); }
+    { extern RcFn d_1db430; RC_SAVE(); if (d_1db430) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x4337d2ull); c->rip = B + 0x1db430ull; d_1db430(c); } else rc->call(c, B + 0x1db430ull, B + 0x4337d2ull); RC_LOAD(); }
     r[1] = r[3] + 0xb8ull;
     { std::memset(&v[1], 0, 16); v[1].f[0] = GuestLoad<float>((uint64_t)(B + 0x16b4918ull)); }
-    { RC_SAVE(); rc->call(c, B + 0x1db430ull, B + 0x4337e6ull); RC_LOAD(); }
+    { extern RcFn d_1db430; RC_SAVE(); if (d_1db430) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x4337e6ull); c->rip = B + 0x1db430ull; d_1db430(c); } else rc->call(c, B + 0x1db430ull, B + 0x4337e6ull); RC_LOAD(); }
     r[1] = r[3] + 0xbaull;
     { std::memset(&v[1], 0, 16); v[1].f[0] = GuestLoad<float>((uint64_t)(B + 0x16b4460ull)); }
-    { RC_SAVE(); rc->call(c, B + 0x1db430ull, B + 0x4337faull); RC_LOAD(); }
+    { extern RcFn d_1db430; RC_SAVE(); if (d_1db430) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x4337faull); c->rip = B + 0x1db430ull; d_1db430(c); } else rc->call(c, B + 0x1db430ull, B + 0x4337faull); RC_LOAD(); }
     r[0] = (uint32_t)(0x4bull);
     GuestStore<uint16_t>(r[3] + 0xbcull, (r[0] & 0xffffull));
     r[1] = r[3] + 0xbeull;
     { std::memset(&v[1], 0, 16); v[1].f[0] = GuestLoad<float>((uint64_t)(B + 0x16b4660ull)); }
-    { RC_SAVE(); rc->call(c, B + 0x1db430ull, B + 0x43381aull); RC_LOAD(); }
+    { extern RcFn d_1db430; RC_SAVE(); if (d_1db430) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x43381aull); c->rip = B + 0x1db430ull; d_1db430(c); } else rc->call(c, B + 0x1db430ull, B + 0x43381aull); RC_LOAD(); }
     GuestStore<uint16_t>(r[3] + 0xc0ull, (r[7] & 0xffffull));
     GuestStore<uint8_t>(r[3] + 0xc2ull, 0xffull);
     r[0] = (uint32_t)(0xbf800000ull);
@@ -23144,7 +23236,7 @@ L_4338ec: ;
     r[8] = (uint32_t)((r[3] & 0xffffffffull));
     r[2] = r[5] + (uint64_t)(-0x30);
     r[1] = r[0];
-    { RC_SAVE(); rc->call(c, B + 0x32a864ull, B + 0x43390bull); RC_LOAD(); }
+    { extern RcFn d_32a864; RC_SAVE(); if (d_32a864) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x43390bull); c->rip = B + 0x32a864ull; d_32a864(c); } else rc->call(c, B + 0x32a864ull, B + 0x43390bull); RC_LOAD(); }
     r[6] = r[0];
     GuestStore<uint64_t>(r[5] + (uint64_t)(-0x28), r[0]);
     r[3] = GuestLoad<uint64_t>(r[0]);
@@ -23182,7 +23274,7 @@ L_433967: ;
     r[8] = (uint32_t)((r[3] & 0xffffffffull));
     r[2] = r[5] + (uint64_t)(-0x20);
     r[1] = r[0];
-    { RC_SAVE(); rc->call(c, B + 0x32a8b4ull, B + 0x433982ull); RC_LOAD(); }
+    { extern RcFn d_32a8b4; RC_SAVE(); if (d_32a8b4) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x433982ull); c->rip = B + 0x32a8b4ull; d_32a8b4(c); } else rc->call(c, B + 0x32a8b4ull, B + 0x433982ull); RC_LOAD(); }
     r[6] = r[0];
     GuestStore<uint64_t>(r[5] + (uint64_t)(-0x28), r[0]);
     r[3] = GuestLoad<uint64_t>(r[0]);
@@ -23253,7 +23345,7 @@ L_433a45: ;
     r[8] = (uint32_t)((r[3] & 0xffffffffull));
     r[2] = r[5] + (uint64_t)(-0x18);
     r[1] = r[0];
-    { RC_SAVE(); rc->call(c, B + 0x32a864ull, B + 0x433a64ull); RC_LOAD(); }
+    { extern RcFn d_32a864; RC_SAVE(); if (d_32a864) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x433a64ull); c->rip = B + 0x32a864ull; d_32a864(c); } else rc->call(c, B + 0x32a864ull, B + 0x433a64ull); RC_LOAD(); }
     r[12] = r[0];
     GuestStore<uint64_t>(r[5] + (uint64_t)(-0x28), r[0]);
     r[3] = GuestLoad<uint64_t>(r[0]);
@@ -23347,7 +23439,7 @@ __attribute__((visibility("hidden"))) void f_433b24(CpuContext *c) {
     r[3] = r[2];
     r[6] = r[1];
     { c->flags = ArithFlags(c->flags, 2, GuestLoad<uint32_t>(r[5] + (uint64_t)(-0x20)), 0x0ull, (GuestLoad<uint32_t>(r[5] + (uint64_t)(-0x20)) & 0x0ull), 4); GuestStore<uint32_t>(r[5] + (uint64_t)(-0x20), (GuestLoad<uint32_t>(r[5] + (uint64_t)(-0x20)) & 0x0ull)); }
-    { RC_SAVE(); rc->call(c, B + 0x118348ull, B + 0x433b5full); RC_LOAD(); }
+    { extern RcFn d_118348; RC_SAVE(); if (d_118348) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x433b5full); c->rip = B + 0x118348ull; d_118348(c); } else rc->call(c, B + 0x118348ull, B + 0x433b5full); RC_LOAD(); }
     r[12] = (uint32_t)(0x1ull);
     GuestStore<uint32_t>(r[5] + (uint64_t)(-0x20), (r[12] & 0xffffffffull));
     r[0] = GuestLoad<uint64_t>(r[3]);
@@ -23368,7 +23460,7 @@ L_433b90: ;
     r[8] = (uint32_t)((r[7] & 0xffffffffull));
     r[2] = r[5] + (uint64_t)(-0x18);
     r[1] = r[0];
-    { RC_SAVE(); rc->call(c, B + 0x32a864ull, B + 0x433ba7ull); RC_LOAD(); }
+    { extern RcFn d_32a864; RC_SAVE(); if (d_32a864) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x433ba7ull); c->rip = B + 0x32a864ull; d_32a864(c); } else rc->call(c, B + 0x32a864ull, B + 0x433ba7ull); RC_LOAD(); }
     
     r[7] = GuestLoad<uint64_t>(r[0]);
     { c->flags = ArithFlags(c->flags, 1, r[7], GuestLoad<uint64_t>(r[3]), (r[7] - GuestLoad<uint64_t>(r[3])), 8); }
@@ -23499,7 +23591,7 @@ __attribute__((visibility("hidden"))) void f_433cc0(CpuContext *c) {
     r[3] = r[2];
     r[6] = r[1];
     { c->flags = ArithFlags(c->flags, 2, GuestLoad<uint32_t>(r[5] + (uint64_t)(-0x20)), 0x0ull, (GuestLoad<uint32_t>(r[5] + (uint64_t)(-0x20)) & 0x0ull), 4); GuestStore<uint32_t>(r[5] + (uint64_t)(-0x20), (GuestLoad<uint32_t>(r[5] + (uint64_t)(-0x20)) & 0x0ull)); }
-    { RC_SAVE(); rc->call(c, B + 0xac584ull, B + 0x433cfbull); RC_LOAD(); }
+    { extern RcFn d_ac584; RC_SAVE(); if (d_ac584) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x433cfbull); c->rip = B + 0xac584ull; d_ac584(c); } else rc->call(c, B + 0xac584ull, B + 0x433cfbull); RC_LOAD(); }
     r[12] = (uint32_t)(0x1ull);
     GuestStore<uint32_t>(r[5] + (uint64_t)(-0x20), (r[12] & 0xffffffffull));
     r[0] = GuestLoad<uint64_t>(r[3]);
@@ -23520,7 +23612,7 @@ L_433d2c: ;
     r[8] = (uint32_t)((r[7] & 0xffffffffull));
     r[2] = r[5] + (uint64_t)(-0x18);
     r[1] = r[0];
-    { RC_SAVE(); rc->call(c, B + 0x32a8b4ull, B + 0x433d43ull); RC_LOAD(); }
+    { extern RcFn d_32a8b4; RC_SAVE(); if (d_32a8b4) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x433d43ull); c->rip = B + 0x32a8b4ull; d_32a8b4(c); } else rc->call(c, B + 0x32a8b4ull, B + 0x433d43ull); RC_LOAD(); }
     
     r[7] = GuestLoad<uint64_t>(r[0]);
     { c->flags = ArithFlags(c->flags, 1, r[7], GuestLoad<uint64_t>(r[3]), (r[7] - GuestLoad<uint64_t>(r[3])), 8); }
@@ -23659,7 +23751,7 @@ L_433e9a: ;
     { c->flags = ArithFlags(c->flags, 2, (r[7] & 0xffull), 0x1ull, ((r[7] & 0xffull) & 0x1ull), 1); }
     if (Cond(0x4, c->flags)) goto L_433ebc;
     r[1] = r[3];
-    { RC_SAVE(); rc->call(c, B + 0x9ae58ull, B + 0x433ebcull); RC_LOAD(); }
+    { extern RcFn d_9ae58; RC_SAVE(); if (d_9ae58) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x433ebcull); c->rip = B + 0x9ae58ull; d_9ae58(c); } else rc->call(c, B + 0x9ae58ull, B + 0x433ebcull); RC_LOAD(); }
 L_433ebc: ;
     r[0] = r[3];
     r[3] = GuestLoad<uint64_t>(r[4] + 0x48ull);
@@ -23732,7 +23824,7 @@ __attribute__((visibility("hidden"))) void f_433f58(CpuContext *c) {
     { c->flags = ArithFlags(c->flags, 2, (r[3] & 0xffull), 0x1ull, ((r[3] & 0xffull) & 0x1ull), 1); }
     if (Cond(0x4, c->flags)) goto L_433f79;
     r[1] = r[7];
-    { RC_SAVE(); rc->call(c, B + 0x9ae58ull, B + 0x433f79ull); RC_LOAD(); }
+    { extern RcFn d_9ae58; RC_SAVE(); if (d_9ae58) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x433f79ull); c->rip = B + 0x9ae58ull; d_9ae58(c); } else rc->call(c, B + 0x9ae58ull, B + 0x433f79ull); RC_LOAD(); }
 L_433f79: ;
     r[0] = r[7];
     r[3] = GuestLoad<uint64_t>(r[4] + 0x30ull);
@@ -23883,7 +23975,7 @@ __attribute__((visibility("hidden"))) void f_43410c(CpuContext *c) {
     r[7] = r[1];
     r[1] = GuestLoad<uint64_t>(r[1] + 0x18ull);
     r[6] = r[2];
-    { RC_SAVE(); rc->call(c, B + 0x543174ull, B + 0x43412aull); RC_LOAD(); }
+    { extern RcFn d_543174; RC_SAVE(); if (d_543174) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x43412aull); c->rip = B + 0x543174ull; d_543174(c); } else rc->call(c, B + 0x543174ull, B + 0x43412aull); RC_LOAD(); }
     { c->flags = ArithFlags(c->flags, 2, (r[0] & 0xffull), (r[0] & 0xffull), ((r[0] & 0xffull) & (r[0] & 0xffull)), 1); }
     if (Cond(0x4, c->flags)) goto L_434150;
     { c->flags = ArithFlags(c->flags, 2, r[6], r[6], (r[6] & r[6]), 8); }
@@ -23900,7 +23992,7 @@ L_434145: ;
 L_434150: ;
     r[1] = GuestLoad<uint64_t>(r[7] + 0x10ull);
     r[3] = GuestLoad<uint64_t>(r[7] + 0x18ull);
-    { RC_SAVE(); rc->call(c, B + 0x42c75cull, B + 0x43415dull); RC_LOAD(); }
+    { extern RcFn d_42c75c; RC_SAVE(); if (d_42c75c) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x43415dull); c->rip = B + 0x42c75cull; d_42c75c(c); } else rc->call(c, B + 0x42c75cull, B + 0x43415dull); RC_LOAD(); }
     { v[0].f[0] = v[0].f[0] * GuestLoad<float>(r[3] + 0x304ull); }
     GuestStore<float>(r[3] + 0x304ull, v[0].f[0]);
     { c->flags = ArithFlags(c->flags, 2, r[6], r[6], (r[6] & r[6]), 8); }
@@ -24423,11 +24515,11 @@ __attribute__((visibility("hidden"))) void f_434760(CpuContext *c) {
     { std::memcpy(&v[6], &v[1], 16); }
     { extern RcFn d_51bfec; RC_SAVE(); if (d_51bfec) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x43477aull); c->rip = B + 0x51bfecull; d_51bfec(c); } else rc->call(c, B + 0x51bfecull, B + 0x43477aull); RC_LOAD(); }
     r[1] = GuestLoad<uint64_t>(r[3] + 0x18ull);
-    { RC_SAVE(); rc->call(c, B + 0x51c128ull, B + 0x434783ull); RC_LOAD(); }
+    { extern RcFn d_51c128; RC_SAVE(); if (d_51c128) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x434783ull); c->rip = B + 0x51c128ull; d_51c128(c); } else rc->call(c, B + 0x51c128ull, B + 0x434783ull); RC_LOAD(); }
     { c->flags = ArithFlags(c->flags, 2, (r[0] & 0xffull), (r[0] & 0xffull), ((r[0] & 0xffull) & (r[0] & 0xffull)), 1); }
     if (Cond(0x4, c->flags)) goto L_434798;
     r[1] = GuestLoad<uint64_t>(r[3] + 0x18ull);
-    { RC_SAVE(); rc->call(c, B + 0x51c160ull, B + 0x434790ull); RC_LOAD(); }
+    { extern RcFn d_51c160; RC_SAVE(); if (d_51c160) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x434790ull); c->rip = B + 0x51c160ull; d_51c160(c); } else rc->call(c, B + 0x51c160ull, B + 0x434790ull); RC_LOAD(); }
     { c->flags = ArithFlags(c->flags, 2, (r[0] & 0xffull), (r[0] & 0xffull), ((r[0] & 0xffull) & (r[0] & 0xffull)), 1); }
     if (Cond(0x4, c->flags)) goto L_434798;
     GuestStore<uint8_t>(r[3] + 0x38ull, 0x1ull);
@@ -24471,11 +24563,11 @@ __attribute__((visibility("hidden"))) void f_4347f0(CpuContext *c) {
     { std::memcpy(&v[6], &v[1], 16); }
     { extern RcFn d_51bfec; RC_SAVE(); if (d_51bfec) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x43480aull); c->rip = B + 0x51bfecull; d_51bfec(c); } else rc->call(c, B + 0x51bfecull, B + 0x43480aull); RC_LOAD(); }
     r[1] = GuestLoad<uint64_t>(r[3] + 0x18ull);
-    { RC_SAVE(); rc->call(c, B + 0x51c128ull, B + 0x434813ull); RC_LOAD(); }
+    { extern RcFn d_51c128; RC_SAVE(); if (d_51c128) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x434813ull); c->rip = B + 0x51c128ull; d_51c128(c); } else rc->call(c, B + 0x51c128ull, B + 0x434813ull); RC_LOAD(); }
     { c->flags = ArithFlags(c->flags, 2, (r[0] & 0xffull), (r[0] & 0xffull), ((r[0] & 0xffull) & (r[0] & 0xffull)), 1); }
     if (Cond(0x4, c->flags)) goto L_434828;
     r[1] = GuestLoad<uint64_t>(r[3] + 0x18ull);
-    { RC_SAVE(); rc->call(c, B + 0x51c160ull, B + 0x434820ull); RC_LOAD(); }
+    { extern RcFn d_51c160; RC_SAVE(); if (d_51c160) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x434820ull); c->rip = B + 0x51c160ull; d_51c160(c); } else rc->call(c, B + 0x51c160ull, B + 0x434820ull); RC_LOAD(); }
     { c->flags = ArithFlags(c->flags, 2, (r[0] & 0xffull), (r[0] & 0xffull), ((r[0] & 0xffull) & (r[0] & 0xffull)), 1); }
     if (Cond(0x4, c->flags)) goto L_434828;
     GuestStore<uint8_t>(r[3] + 0x38ull, 0x1ull);
@@ -24565,7 +24657,7 @@ L_434917: ;
     r[1] = GuestLoad<uint64_t>(r[10]);
     { c->flags = ArithFlags(c->flags, 2, r[1], r[1], (r[1] & r[1]), 8); }
     if (Cond(0x4, c->flags)) goto L_434924;
-    { RC_SAVE(); rc->call(c, B + 0x35fae4ull, B + 0x434924ull); RC_LOAD(); }
+    { extern RcFn d_35fae4; RC_SAVE(); if (d_35fae4) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x434924ull); c->rip = B + 0x35fae4ull; d_35fae4(c); } else rc->call(c, B + 0x35fae4ull, B + 0x434924ull); RC_LOAD(); }
 L_434924: ;
     { c->flags = ((c->flags & F_CF) | (ArithFlags(c->flags, 0, (r[11] & 0xffffffffull), 1, ((r[11] & 0xffffffffull) + 1), 4) & ~(uint64_t)F_CF)); r[11] = (uint32_t)(((r[11] & 0xffffffffull) + 1)); }
     { c->flags = ArithFlags(c->flags, 0, r[10], 0x8ull, (r[10] + 0x8ull), 8); r[10] = (r[10] + 0x8ull); }
@@ -24621,7 +24713,7 @@ L_4349e0: ;
     r[1] = GuestLoad<uint64_t>(r[10] + r[0] * 1);
     { c->flags = ArithFlags(c->flags, 2, r[1], r[1], (r[1] & r[1]), 8); }
     if (Cond(0x4, c->flags)) goto L_4349f2;
-    { RC_SAVE(); rc->call(c, B + 0x35fae4ull, B + 0x4349f2ull); RC_LOAD(); }
+    { extern RcFn d_35fae4; RC_SAVE(); if (d_35fae4) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x4349f2ull); c->rip = B + 0x35fae4ull; d_35fae4(c); } else rc->call(c, B + 0x35fae4ull, B + 0x4349f2ull); RC_LOAD(); }
 L_4349f2: ;
     { c->flags = ((c->flags & F_CF) | (ArithFlags(c->flags, 0, (r[11] & 0xffffffffull), 1, ((r[11] & 0xffffffffull) + 1), 4) & ~(uint64_t)F_CF)); r[11] = (uint32_t)(((r[11] & 0xffffffffull) + 1)); }
     { c->flags = ArithFlags(c->flags, 0, r[10], 0x8ull, (r[10] + 0x8ull), 8); r[10] = (r[10] + 0x8ull); }
@@ -24723,7 +24815,7 @@ L_434b17: ;
     r[1] = GuestLoad<uint64_t>(r[10]);
     { c->flags = ArithFlags(c->flags, 2, r[1], r[1], (r[1] & r[1]), 8); }
     if (Cond(0x4, c->flags)) goto L_434b24;
-    { RC_SAVE(); rc->call(c, B + 0x35fae4ull, B + 0x434b24ull); RC_LOAD(); }
+    { extern RcFn d_35fae4; RC_SAVE(); if (d_35fae4) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x434b24ull); c->rip = B + 0x35fae4ull; d_35fae4(c); } else rc->call(c, B + 0x35fae4ull, B + 0x434b24ull); RC_LOAD(); }
 L_434b24: ;
     { c->flags = ((c->flags & F_CF) | (ArithFlags(c->flags, 0, (r[11] & 0xffffffffull), 1, ((r[11] & 0xffffffffull) + 1), 4) & ~(uint64_t)F_CF)); r[11] = (uint32_t)(((r[11] & 0xffffffffull) + 1)); }
     { c->flags = ArithFlags(c->flags, 0, r[10], 0x8ull, (r[10] + 0x8ull), 8); r[10] = (r[10] + 0x8ull); }
@@ -24829,7 +24921,7 @@ L_434c65: ;
     r[1] = GuestLoad<uint64_t>(r[10] + r[0] * 1);
     { c->flags = ArithFlags(c->flags, 2, r[1], r[1], (r[1] & r[1]), 8); }
     if (Cond(0x4, c->flags)) goto L_434c77;
-    { RC_SAVE(); rc->call(c, B + 0x35fae4ull, B + 0x434c77ull); RC_LOAD(); }
+    { extern RcFn d_35fae4; RC_SAVE(); if (d_35fae4) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x434c77ull); c->rip = B + 0x35fae4ull; d_35fae4(c); } else rc->call(c, B + 0x35fae4ull, B + 0x434c77ull); RC_LOAD(); }
 L_434c77: ;
     { c->flags = ((c->flags & F_CF) | (ArithFlags(c->flags, 0, (r[11] & 0xffffffffull), 1, ((r[11] & 0xffffffffull) + 1), 4) & ~(uint64_t)F_CF)); r[11] = (uint32_t)(((r[11] & 0xffffffffull) + 1)); }
     { c->flags = ArithFlags(c->flags, 0, r[10], 0x8ull, (r[10] + 0x8ull), 8); r[10] = (r[10] + 0x8ull); }
@@ -25460,7 +25552,7 @@ __attribute__((visibility("hidden"))) void f_435404(CpuContext *c) {
     r[2] = r[0] + (uint64_t)(-0x68);
     r[1] = r[7];
     GuestStoreV(r[0] + (uint64_t)(-0x38), v[8]);
-    { RC_SAVE(); rc->call(c, B + 0x53aa84ull, B + 0x43543eull); RC_LOAD(); }
+    { extern RcFn d_53aa84; RC_SAVE(); if (d_53aa84) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x43543eull); c->rip = B + 0x53aa84ull; d_53aa84(c); } else rc->call(c, B + 0x53aa84ull, B + 0x43543eull); RC_LOAD(); }
     r[8] = (r[8] & ~0xffull) | ((0x1ull) & 0xffull);
     r[1] = r[7];
     { std::memset(&v[3], 0, 16); v[3].f[0] = GuestLoad<float>((uint64_t)(B + 0x16b4390ull)); }
@@ -25486,7 +25578,7 @@ __attribute__((visibility("hidden"))) void f_435404(CpuContext *c) {
     r[2] = r[4] + 0x40ull;
     r[1] = r[3];
     { std::memset(&v[8], 0, 16); v[8].f[0] = GuestLoad<float>(r[0] + 0x1e0ull); }
-    { RC_SAVE(); rc->call(c, B + 0x53aa84ull, B + 0x4354b5ull); RC_LOAD(); }
+    { extern RcFn d_53aa84; RC_SAVE(); if (d_53aa84) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x4354b5ull); c->rip = B + 0x53aa84ull; d_53aa84(c); } else rc->call(c, B + 0x53aa84ull, B + 0x4354b5ull); RC_LOAD(); }
     r[2] = r[4] + 0x50ull;
     r[1] = r[3];
     { std::memset(&v[0], 0, 16); v[0].f[0] = GuestLoad<float>((uint64_t)(B + 0x16b44c8ull)); }
@@ -25689,7 +25781,7 @@ L_435730: ;
     
     r[2] = r[5] + (uint64_t)(-0x21);
     r[1] = r[0];
-    { RC_SAVE(); rc->call(c, B + 0xbcd4cull, B + 0x435768ull); RC_LOAD(); }
+    { extern RcFn d_bcd4c; RC_SAVE(); if (d_bcd4c) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x435768ull); c->rip = B + 0xbcd4cull; d_bcd4c(c); } else rc->call(c, B + 0xbcd4cull, B + 0x435768ull); RC_LOAD(); }
     r[0] = GuestLoad<uint64_t>(r[5] + (uint64_t)(-0x21));
     GuestStore<uint64_t>(r[5] + (uint64_t)(-0x11), r[0]);
     r[7] = (uint32_t)(0x1ull);
@@ -25986,7 +26078,7 @@ L_435aac: ;
     
     r[2] = r[5] + (uint64_t)(-0x19);
     r[1] = r[0];
-    { RC_SAVE(); rc->call(c, B + 0xbcd4cull, B + 0x435aceull); RC_LOAD(); }
+    { extern RcFn d_bcd4c; RC_SAVE(); if (d_bcd4c) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x435aceull); c->rip = B + 0xbcd4cull; d_bcd4c(c); } else rc->call(c, B + 0xbcd4cull, B + 0x435aceull); RC_LOAD(); }
     r[3] = GuestLoad<uint64_t>(r[5] + (uint64_t)(-0x19));
     GuestStore<uint64_t>(r[5] + (uint64_t)(-0x9), r[3]);
     { c->flags = ArithFlags(c->flags, 2, r[3], r[3], (r[3] & r[3]), 8); }
@@ -26127,7 +26219,7 @@ __attribute__((visibility("hidden"))) void f_435c30(CpuContext *c) {
     { c->flags = ArithFlags(c->flags, 2, GuestLoad<uint32_t>(r[5] + (uint64_t)(-0x20)), 0x0ull, (GuestLoad<uint32_t>(r[5] + (uint64_t)(-0x20)) & 0x0ull), 4); GuestStore<uint32_t>(r[5] + (uint64_t)(-0x20), (GuestLoad<uint32_t>(r[5] + (uint64_t)(-0x20)) & 0x0ull)); }
     r[2] = r[5] + (uint64_t)(-0x10);
     r[1] = r[0];
-    { RC_SAVE(); rc->call(c, B + 0x1436b4ull, B + 0x435c65ull); RC_LOAD(); }
+    { extern RcFn d_1436b4; RC_SAVE(); if (d_1436b4) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x435c65ull); c->rip = B + 0x1436b4ull; d_1436b4(c); } else rc->call(c, B + 0x1436b4ull, B + 0x435c65ull); RC_LOAD(); }
     
     r[0] = GuestLoad<uint64_t>(r[0]);
     GuestStore<uint64_t>(r[5] + 0x28ull, r[0]);
@@ -26141,7 +26233,7 @@ L_435c76: ;
     
     r[2] = r[5] + 0x20ull;
     r[1] = r[0];
-    { RC_SAVE(); rc->call(c, B + 0xbcd4cull, B + 0x435c90ull); RC_LOAD(); }
+    { extern RcFn d_bcd4c; RC_SAVE(); if (d_bcd4c) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x435c90ull); c->rip = B + 0xbcd4cull; d_bcd4c(c); } else rc->call(c, B + 0xbcd4cull, B + 0x435c90ull); RC_LOAD(); }
     r[0] = GuestLoad<uint64_t>(r[5] + 0x20ull);
     GuestStore<uint64_t>(r[3], r[0]);
     { c->flags = ArithFlags(c->flags, 2, r[0], r[0], (r[0] & r[0]), 8); }
@@ -26210,7 +26302,7 @@ __attribute__((visibility("hidden"))) void f_435d1c(CpuContext *c) {
     
     r[2] = r[4] + 0x50ull;
     r[1] = r[0];
-    { RC_SAVE(); rc->call(c, B + 0xbcd4cull, B + 0x435d59ull); RC_LOAD(); }
+    { extern RcFn d_bcd4c; RC_SAVE(); if (d_bcd4c) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x435d59ull); c->rip = B + 0xbcd4cull; d_bcd4c(c); } else rc->call(c, B + 0xbcd4cull, B + 0x435d59ull); RC_LOAD(); }
     r[0] = GuestLoad<uint64_t>(r[4] + 0x50ull);
     GuestStore<uint64_t>(r[3], r[0]);
     { c->flags = ArithFlags(c->flags, 2, r[0], r[0], (r[0] & r[0]), 8); }
@@ -26295,7 +26387,7 @@ L_435e4a: ;
 L_435e5c: ;
     r[2] = r[4] + 0x80ull;
     r[1] = r[4] + 0x88ull;
-    { RC_SAVE(); rc->call(c, B + 0xbcd4cull, B + 0x435e71ull); RC_LOAD(); }
+    { extern RcFn d_bcd4c; RC_SAVE(); if (d_bcd4c) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x435e71ull); c->rip = B + 0xbcd4cull; d_bcd4c(c); } else rc->call(c, B + 0xbcd4cull, B + 0x435e71ull); RC_LOAD(); }
     r[0] = GuestLoad<uint64_t>(r[4] + 0x80ull);
     GuestStore<uint64_t>(r[7], r[0]);
     { c->flags = ArithFlags(c->flags, 2, r[0], r[0], (r[0] & r[0]), 8); }
@@ -26360,7 +26452,7 @@ __attribute__((visibility("hidden"))) void f_435ef4(CpuContext *c) {
     
     r[2] = r[4] + 0x50ull;
     r[1] = r[0];
-    { RC_SAVE(); rc->call(c, B + 0xbcd4cull, B + 0x435f30ull); RC_LOAD(); }
+    { extern RcFn d_bcd4c; RC_SAVE(); if (d_bcd4c) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x435f30ull); c->rip = B + 0xbcd4cull; d_bcd4c(c); } else rc->call(c, B + 0xbcd4cull, B + 0x435f30ull); RC_LOAD(); }
     r[0] = GuestLoad<uint64_t>(r[4] + 0x50ull);
     GuestStore<uint64_t>(r[3], r[0]);
     { c->flags = ArithFlags(c->flags, 2, r[0], r[0], (r[0] & r[0]), 8); }
@@ -29252,7 +29344,7 @@ L_437db2: ;
     
     r[2] = r[5] + (uint64_t)(-0x20);
     r[1] = r[0];
-    { RC_SAVE(); rc->call(c, B + 0xbcd4cull, B + 0x437dccull); RC_LOAD(); }
+    { extern RcFn d_bcd4c; RC_SAVE(); if (d_bcd4c) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x437dccull); c->rip = B + 0xbcd4cull; d_bcd4c(c); } else rc->call(c, B + 0xbcd4cull, B + 0x437dccull); RC_LOAD(); }
     r[2] = r[0];
     r[1] = r[5] + (uint64_t)(-0x18);
     { extern RcFn d_1015c0; RC_SAVE(); if (d_1015c0) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x437dd8ull); c->rip = B + 0x1015c0ull; d_1015c0(c); } else rc->call(c, B + 0x1015c0ull, B + 0x437dd8ull); RC_LOAD(); }
@@ -29396,7 +29488,7 @@ L_437f64: ;
     r[1] = r[14];
     { c->flags = ((c->flags & F_CF) | (ArithFlags(c->flags, 1, r[3], 1, (r[3] - 1), 8) & ~(uint64_t)F_CF)); r[3] = (r[3] - 1); }
     { c->flags = ArithFlags(c->flags, 0, r[6], r[14], (r[6] + r[14]), 8); r[6] = (r[6] + r[14]); }
-    { RC_SAVE(); rc->call(c, B + 0x9ae70ull, B + 0x437f78ull); RC_LOAD(); }
+    { extern RcFn d_9ae70; RC_SAVE(); if (d_9ae70) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x437f78ull); c->rip = B + 0x9ae70ull; d_9ae70(c); } else rc->call(c, B + 0x9ae70ull, B + 0x437f78ull); RC_LOAD(); }
     { c->flags = ArithFlags(c->flags, 2, r[0], r[0], (r[0] & r[0]), 8); }
     if (Cond(0x4, c->flags)) goto L_437f81;
     { c->flags = ArithFlags(c->flags, 2, GuestLoad<uint64_t>(r[0]), 0x0ull, (GuestLoad<uint64_t>(r[0]) & 0x0ull), 8); GuestStore<uint64_t>(r[0], (GuestLoad<uint64_t>(r[0]) & 0x0ull)); }
@@ -29837,7 +29929,7 @@ __attribute__((visibility("hidden"))) void f_4383e0(CpuContext *c) {
     
     r[2] = r[5] + (uint64_t)(-0x28);
     r[1] = r[0];
-    { RC_SAVE(); rc->call(c, B + 0xbcd4cull, B + 0x438449ull); RC_LOAD(); }
+    { extern RcFn d_bcd4c; RC_SAVE(); if (d_bcd4c) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x438449ull); c->rip = B + 0xbcd4cull; d_bcd4c(c); } else rc->call(c, B + 0xbcd4cull, B + 0x438449ull); RC_LOAD(); }
     r[2] = r[0];
     r[1] = r[5] + (uint64_t)(-0x18);
     { extern RcFn d_1015c0; RC_SAVE(); if (d_1015c0) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x438455ull); c->rip = B + 0x1015c0ull; d_1015c0(c); } else rc->call(c, B + 0x1015c0ull, B + 0x438455ull); RC_LOAD(); }
@@ -29865,7 +29957,7 @@ L_43848b: ;
     
     r[2] = r[5] + (uint64_t)(-0x20);
     r[1] = r[0];
-    { RC_SAVE(); rc->call(c, B + 0xbcd4cull, B + 0x4384a5ull); RC_LOAD(); }
+    { extern RcFn d_bcd4c; RC_SAVE(); if (d_bcd4c) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x4384a5ull); c->rip = B + 0xbcd4cull; d_bcd4c(c); } else rc->call(c, B + 0xbcd4cull, B + 0x4384a5ull); RC_LOAD(); }
     r[2] = r[0];
     r[1] = r[5] + (uint64_t)(-0x18);
     { extern RcFn d_1015c0; RC_SAVE(); if (d_1015c0) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x4384b1ull); c->rip = B + 0x1015c0ull; d_1015c0(c); } else rc->call(c, B + 0x1015c0ull, B + 0x4384b1ull); RC_LOAD(); }
@@ -31559,7 +31651,7 @@ L_439ab7: ;
     { c->flags = ArithFlags(c->flags, 2, (r[6] & 0xffull), 0x1ull, ((r[6] & 0xffull) & 0x1ull), 1); }
     if (Cond(0x4, c->flags)) goto L_439ae1;
     r[1] = r[7];
-    { RC_SAVE(); rc->call(c, B + 0x9ae58ull, B + 0x439ae1ull); RC_LOAD(); }
+    { extern RcFn d_9ae58; RC_SAVE(); if (d_9ae58) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x439ae1ull); c->rip = B + 0x9ae58ull; d_9ae58(c); } else rc->call(c, B + 0x9ae58ull, B + 0x439ae1ull); RC_LOAD(); }
 L_439ae1: ;
     r[0] = r[7];
     r[3] = GuestLoad<uint64_t>(r[4] + 0x48ull);
@@ -31939,7 +32031,7 @@ __attribute__((visibility("hidden"))) void f_439fac(CpuContext *c) {
     { c->flags = ArithFlags(c->flags, 2, (r[3] & 0xffull), 0x1ull, ((r[3] & 0xffull) & 0x1ull), 1); }
     if (Cond(0x4, c->flags)) goto L_439ff2;
     r[1] = r[7];
-    { RC_SAVE(); rc->call(c, B + 0x9ae58ull, B + 0x439ff2ull); RC_LOAD(); }
+    { extern RcFn d_9ae58; RC_SAVE(); if (d_9ae58) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x439ff2ull); c->rip = B + 0x9ae58ull; d_9ae58(c); } else rc->call(c, B + 0x9ae58ull, B + 0x439ff2ull); RC_LOAD(); }
 L_439ff2: ;
     r[0] = r[7];
     r[3] = GuestLoad<uint64_t>(r[4] + 0x48ull);
@@ -31979,7 +32071,7 @@ __attribute__((visibility("hidden"))) void f_43a000(CpuContext *c) {
     { const uint64_t t = GuestLoad<uint64_t>(r[8] + 0x190ull); RC_SAVE(); rc->call(c, t, B + 0x43a055ull); RC_LOAD(); }
     r[2] = r[7] + 0x60ull;
     r[1] = r[0];
-    { RC_SAVE(); rc->call(c, B + 0x8dd4bcull, B + 0x43a061ull); RC_LOAD(); }
+    { extern RcFn d_8dd4bc; RC_SAVE(); if (d_8dd4bc) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x43a061ull); c->rip = B + 0x8dd4bcull; d_8dd4bc(c); } else rc->call(c, B + 0x8dd4bcull, B + 0x43a061ull); RC_LOAD(); }
     r[3] = r[0];
     { c->flags = ArithFlags(c->flags, 2, r[0], r[0], (r[0] & r[0]), 8); }
     if (Cond(0x4, c->flags)) goto L_43a087;
@@ -32719,7 +32811,7 @@ __attribute__((visibility("hidden"))) void f_43a98c(CpuContext *c) {
     { c->flags = ArithFlags(c->flags, 2, (r[3] & 0xffull), 0x1ull, ((r[3] & 0xffull) & 0x1ull), 1); }
     if (Cond(0x4, c->flags)) goto L_43a9cb;
     r[1] = r[7];
-    { RC_SAVE(); rc->call(c, B + 0x9ae58ull, B + 0x43a9cbull); RC_LOAD(); }
+    { extern RcFn d_9ae58; RC_SAVE(); if (d_9ae58) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x43a9cbull); c->rip = B + 0x9ae58ull; d_9ae58(c); } else rc->call(c, B + 0x9ae58ull, B + 0x43a9cbull); RC_LOAD(); }
 L_43a9cb: ;
     r[0] = r[7];
     r[3] = GuestLoad<uint64_t>(r[4] + 0x48ull);
@@ -32815,7 +32907,7 @@ L_43aabd: ;
     { c->flags = ArithFlags(c->flags, 2, (r[7] & 0xffull), 0x1ull, ((r[7] & 0xffull) & 0x1ull), 1); }
     if (Cond(0x4, c->flags)) goto L_43aad3;
     r[1] = r[3];
-    { RC_SAVE(); rc->call(c, B + 0x9ae58ull, B + 0x43aad3ull); RC_LOAD(); }
+    { extern RcFn d_9ae58; RC_SAVE(); if (d_9ae58) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x43aad3ull); c->rip = B + 0x9ae58ull; d_9ae58(c); } else rc->call(c, B + 0x9ae58ull, B + 0x43aad3ull); RC_LOAD(); }
 L_43aad3: ;
     r[0] = r[3];
     r[3] = GuestLoad<uint64_t>(r[4] + 0x48ull);
@@ -33198,7 +33290,7 @@ L_43aff2: ;
     if (Cond(0x7, c->flags)) goto L_43b1f1;
     r[2] = r[5] + (uint64_t)(-0x19);
     r[1] = r[0];
-    { RC_SAVE(); rc->call(c, B + 0x351aa4ull, B + 0x43b021ull); RC_LOAD(); }
+    { extern RcFn d_351aa4; RC_SAVE(); if (d_351aa4) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x43b021ull); c->rip = B + 0x351aa4ull; d_351aa4(c); } else rc->call(c, B + 0x351aa4ull, B + 0x43b021ull); RC_LOAD(); }
     { c->flags = ArithFlags(c->flags, 1, GuestLoad<uint64_t>(r[0]), 0x0ull, (GuestLoad<uint64_t>(r[0]) - 0x0ull), 8); }
     r[14] = (r[14] & ~0xffull) | (((uint8_t)Cond(0x5, c->flags)) & 0xffull);
     r[1] = GuestLoad<uint64_t>(r[5] + (uint64_t)(-0x19));
@@ -33217,7 +33309,7 @@ L_43b050: ;
     if (Cond(0x4, c->flags)) goto L_43b092;
     r[2] = r[5] + (uint64_t)(-0x9);
     r[1] = r[3];
-    { RC_SAVE(); rc->call(c, B + 0x351aa4ull, B + 0x43b061ull); RC_LOAD(); }
+    { extern RcFn d_351aa4; RC_SAVE(); if (d_351aa4) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x43b061ull); c->rip = B + 0x351aa4ull; d_351aa4(c); } else rc->call(c, B + 0x351aa4ull, B + 0x43b061ull); RC_LOAD(); }
     r[1] = GuestLoad<uint64_t>(r[0]);
     GuestStore<uint8_t>(r[1] + 0x31cull, 0x1ull);
     r[1] = GuestLoad<uint64_t>(r[5] + (uint64_t)(-0x9));
@@ -33409,7 +33501,7 @@ __attribute__((visibility("hidden"))) void f_43b280(CpuContext *c) {
     
     r[2] = r[4] + 0x50ull;
     r[1] = r[0];
-    { RC_SAVE(); rc->call(c, B + 0xbcd4cull, B + 0x43b2bcull); RC_LOAD(); }
+    { extern RcFn d_bcd4c; RC_SAVE(); if (d_bcd4c) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x43b2bcull); c->rip = B + 0xbcd4cull; d_bcd4c(c); } else rc->call(c, B + 0xbcd4cull, B + 0x43b2bcull); RC_LOAD(); }
     r[0] = GuestLoad<uint64_t>(r[4] + 0x50ull);
     GuestStore<uint64_t>(r[3], r[0]);
     { c->flags = ArithFlags(c->flags, 2, r[0], r[0], (r[0] & r[0]), 8); }
@@ -33972,7 +34064,7 @@ L_43ba39: ;
     { c->flags = ArithFlags(c->flags, 2, (r[7] & 0xffull), 0x1ull, ((r[7] & 0xffull) & 0x1ull), 1); }
     if (Cond(0x4, c->flags)) goto L_43ba4f;
     r[1] = r[3];
-    { RC_SAVE(); rc->call(c, B + 0x9ae58ull, B + 0x43ba4full); RC_LOAD(); }
+    { extern RcFn d_9ae58; RC_SAVE(); if (d_9ae58) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x43ba4full); c->rip = B + 0x9ae58ull; d_9ae58(c); } else rc->call(c, B + 0x9ae58ull, B + 0x43ba4full); RC_LOAD(); }
 L_43ba4f: ;
     r[0] = r[3];
     r[3] = GuestLoad<uint64_t>(r[4] + 0x48ull);
@@ -34081,7 +34173,7 @@ L_43bb75: ;
     { c->flags = ArithFlags(c->flags, 2, (r[7] & 0xffull), 0x1ull, ((r[7] & 0xffull) & 0x1ull), 1); }
     if (Cond(0x4, c->flags)) goto L_43bb8b;
     r[1] = r[3];
-    { RC_SAVE(); rc->call(c, B + 0x9ae58ull, B + 0x43bb8bull); RC_LOAD(); }
+    { extern RcFn d_9ae58; RC_SAVE(); if (d_9ae58) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x43bb8bull); c->rip = B + 0x9ae58ull; d_9ae58(c); } else rc->call(c, B + 0x9ae58ull, B + 0x43bb8bull); RC_LOAD(); }
 L_43bb8b: ;
     r[0] = r[3];
     r[3] = GuestLoad<uint64_t>(r[4] + 0x48ull);
@@ -34298,7 +34390,7 @@ L_43be4f: ;
     if (Cond(0x2, c->flags)) goto L_43be86;
     r[2] = r[4] + 0x70ull;
     r[1] = GuestLoad<uint64_t>(r[3] + 0x10ull);
-    { RC_SAVE(); rc->call(c, B + 0x39f42cull, B + 0x43be6dull); RC_LOAD(); }
+    { extern RcFn d_39f42c; RC_SAVE(); if (d_39f42c) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x43be6dull); c->rip = B + 0x39f42cull; d_39f42c(c); } else rc->call(c, B + 0x39f42cull, B + 0x43be6dull); RC_LOAD(); }
     { c->flags = ArithFlags(c->flags, 2, GuestLoad<uint64_t>(r[4] + 0x20ull), 0x0ull, (GuestLoad<uint64_t>(r[4] + 0x20ull) & 0x0ull), 8); GuestStore<uint64_t>(r[4] + 0x20ull, (GuestLoad<uint64_t>(r[4] + 0x20ull) & 0x0ull)); }
     { c->flags = ArithFlags(c->flags, 2, (r[9] & 0xffffffffull), (r[9] & 0xffffffffull), ((r[9] & 0xffffffffull) ^ (r[9] & 0xffffffffull)), 4); r[9] = (uint32_t)(((r[9] & 0xffffffffull) ^ (r[9] & 0xffffffffull))); }
     { c->flags = ArithFlags(c->flags, 2, (r[8] & 0xffffffffull), (r[8] & 0xffffffffull), ((r[8] & 0xffffffffull) ^ (r[8] & 0xffffffffull)), 4); r[8] = (uint32_t)(((r[8] & 0xffffffffull) ^ (r[8] & 0xffffffffull))); }
@@ -34391,7 +34483,7 @@ __attribute__((visibility("hidden"))) void f_43bf3c(CpuContext *c) {
     if (Cond(0x4, c->flags)) goto L_43c180;
     r[6] = GuestLoad<uint64_t>(r[3] + 0x10ull);
     r[2] = r[5] + (uint64_t)(-0x20);
-    { RC_SAVE(); rc->call(c, B + 0x9768e0ull, B + 0x43bf7eull); RC_LOAD(); }
+    { extern RcFn d_9768e0; RC_SAVE(); if (d_9768e0) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x43bf7eull); c->rip = B + 0x9768e0ull; d_9768e0(c); } else rc->call(c, B + 0x9768e0ull, B + 0x43bf7eull); RC_LOAD(); }
     { std::memset(&v[3], 0, 16); v[3].f[0] = GuestLoad<float>(r[0] + 0x4ull); }
     { std::memset(&v[0], 0, 16); v[0].f[0] = GuestLoad<float>(r[0]); }
     { std::memset(&v[1], 0, 16); v[1].f[0] = GuestLoad<float>(r[0] + 0x8ull); }
@@ -34400,7 +34492,7 @@ __attribute__((visibility("hidden"))) void f_43bf3c(CpuContext *c) {
     { v[1].f[0] = v[1].f[0] * v[1].f[0]; }
     { v[0].f[0] = v[0].f[0] + v[3].f[0]; }
     { v[0].f[0] = v[0].f[0] + v[1].f[0]; }
-    { RC_SAVE(); rc->call(c, B + 0x11067e6ull, B + 0x43bfa5ull); RC_LOAD(); }
+    { extern RcFn d_11067e6; RC_SAVE(); if (d_11067e6) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x43bfa5ull); c->rip = B + 0x11067e6ull; d_11067e6(c); } else rc->call(c, B + 0x11067e6ull, B + 0x43bfa5ull); RC_LOAD(); }
     r[1] = (uint32_t)(GuestLoad<uint8_t>(r[3] + 0x118ull));
     { std::memcpy(&v[6], &v[0], 16); }
     { c->flags = ArithFlags(c->flags, 2, (r[1] & 0xffffffffull), (r[1] & 0xffffffffull), ((r[1] & 0xffffffffull) & (r[1] & 0xffffffffull)), 4); }
@@ -34414,7 +34506,7 @@ __attribute__((visibility("hidden"))) void f_43bf3c(CpuContext *c) {
     if (Cond(0x2, c->flags)) goto L_43bfeb;
     r[2] = r[5] + 0x20ull;
     r[1] = r[6];
-    { RC_SAVE(); rc->call(c, B + 0x39f42cull, B + 0x43bfdbull); RC_LOAD(); }
+    { extern RcFn d_39f42c; RC_SAVE(); if (d_39f42c) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x43bfdbull); c->rip = B + 0x39f42cull; d_39f42c(c); } else rc->call(c, B + 0x39f42cull, B + 0x43bfdbull); RC_LOAD(); }
     r[7] = (uint32_t)(0x4ull);
     { c->flags = ArithFlags(c->flags, 1, GuestLoad<uint64_t>(r[0]), 0x0ull, (GuestLoad<uint64_t>(r[0]) - 0x0ull), 8); }
     if (Cond(0x4, c->flags)) goto L_43bfeb;
@@ -34440,7 +34532,7 @@ L_43c014: ;
     r[2] = r[5] + (uint64_t)(-0x48);
 L_43c01d: ;
     r[1] = r[6];
-    { RC_SAVE(); rc->call(c, B + 0x39f42cull, B + 0x43c025ull); RC_LOAD(); }
+    { extern RcFn d_39f42c; RC_SAVE(); if (d_39f42c) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x43c025ull); c->rip = B + 0x39f42cull; d_39f42c(c); } else rc->call(c, B + 0x39f42cull, B + 0x43c025ull); RC_LOAD(); }
     r[9] = (r[9] & ~0xffull) | ((GuestLoad<uint8_t>(r[3] + 0x70ull)) & 0xffull);
     { c->flags = ArithFlags(c->flags, 2, GuestLoad<uint64_t>(r[4] + 0x20ull), 0x0ull, (GuestLoad<uint64_t>(r[4] + 0x20ull) & 0x0ull), 8); GuestStore<uint64_t>(r[4] + 0x20ull, (GuestLoad<uint64_t>(r[4] + 0x20ull) & 0x0ull)); }
     r[2] = r[0];
@@ -34455,7 +34547,7 @@ L_43c049: ;
     if (Cond(0x6, c->flags)) goto L_43c180;
     r[2] = r[5] + (uint64_t)(-0x40);
     r[1] = r[6];
-    { RC_SAVE(); rc->call(c, B + 0x1183c0ull, B + 0x43c066ull); RC_LOAD(); }
+    { extern RcFn d_1183c0; RC_SAVE(); if (d_1183c0) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x43c066ull); c->rip = B + 0x1183c0ull; d_1183c0(c); } else rc->call(c, B + 0x1183c0ull, B + 0x43c066ull); RC_LOAD(); }
     { c->flags = ArithFlags(c->flags, 2, GuestLoad<uint64_t>(r[4] + 0x20ull), 0x0ull, (GuestLoad<uint64_t>(r[4] + 0x20ull) & 0x0ull), 8); GuestStore<uint64_t>(r[4] + 0x20ull, (GuestLoad<uint64_t>(r[4] + 0x20ull) & 0x0ull)); }
     goto L_43c167;
 L_43c071: ;
@@ -34464,7 +34556,7 @@ L_43c071: ;
     if (Cond(0x2, c->flags)) goto L_43c095;
     r[2] = r[5] + 0x38ull;
     r[1] = r[6];
-    { RC_SAVE(); rc->call(c, B + 0x39f42cull, B + 0x43c085ull); RC_LOAD(); }
+    { extern RcFn d_39f42c; RC_SAVE(); if (d_39f42c) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x43c085ull); c->rip = B + 0x39f42cull; d_39f42c(c); } else rc->call(c, B + 0x39f42cull, B + 0x43c085ull); RC_LOAD(); }
     r[7] = (uint32_t)(0x1ull);
     { c->flags = ArithFlags(c->flags, 1, GuestLoad<uint64_t>(r[0]), 0x0ull, (GuestLoad<uint64_t>(r[0]) - 0x0ull), 8); }
     if (Cond(0x4, c->flags)) goto L_43c095;
@@ -34495,7 +34587,7 @@ L_43c0cf: ;
     if (Cond(0x6, c->flags)) goto L_43c0f2;
     r[2] = r[5] + (uint64_t)(-0x50);
     r[1] = r[6];
-    { RC_SAVE(); rc->call(c, B + 0x39f4d4ull, B + 0x43c0e4ull); RC_LOAD(); }
+    { extern RcFn d_39f4d4; RC_SAVE(); if (d_39f4d4) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x43c0e4ull); c->rip = B + 0x39f4d4ull; d_39f4d4(c); } else rc->call(c, B + 0x39f4d4ull, B + 0x43c0e4ull); RC_LOAD(); }
     { c->flags = ArithFlags(c->flags, 2, (r[7] & 0xffffffffull), 0x2ull, ((r[7] & 0xffffffffull) | 0x2ull), 4); r[7] = (uint32_t)(((r[7] & 0xffffffffull) | 0x2ull)); }
     { c->flags = ArithFlags(c->flags, 1, GuestLoad<uint64_t>(r[0]), 0x0ull, (GuestLoad<uint64_t>(r[0]) - 0x0ull), 8); }
     if (Cond(0x4, c->flags)) goto L_43c0f2;
@@ -34520,7 +34612,7 @@ L_43c11b: ;
     if (Cond(0x4, c->flags)) goto L_43c180;
     r[2] = r[5] + (uint64_t)(-0x30);
     r[1] = r[6];
-    { RC_SAVE(); rc->call(c, B + 0x39f4d4ull, B + 0x43c12cull); RC_LOAD(); }
+    { extern RcFn d_39f4d4; RC_SAVE(); if (d_39f4d4) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x43c12cull); c->rip = B + 0x39f4d4ull; d_39f4d4(c); } else rc->call(c, B + 0x39f4d4ull, B + 0x43c12cull); RC_LOAD(); }
     r[9] = (r[9] & ~0xffull) | ((GuestLoad<uint8_t>(r[3] + 0x70ull)) & 0xffull);
     { c->flags = ArithFlags(c->flags, 2, GuestLoad<uint64_t>(r[4] + 0x20ull), 0x0ull, (GuestLoad<uint64_t>(r[4] + 0x20ull) & 0x0ull), 8); GuestStore<uint64_t>(r[4] + 0x20ull, (GuestLoad<uint64_t>(r[4] + 0x20ull) & 0x0ull)); }
     r[2] = r[0];
@@ -34534,7 +34626,7 @@ L_43c14d: ;
     if (Cond(0x6, c->flags)) goto L_43c180;
     r[2] = r[5] + (uint64_t)(-0x28);
     r[1] = r[6];
-    { RC_SAVE(); rc->call(c, B + 0x1183c0ull, B + 0x43c162ull); RC_LOAD(); }
+    { extern RcFn d_1183c0; RC_SAVE(); if (d_1183c0) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x43c162ull); c->rip = B + 0x1183c0ull; d_1183c0(c); } else rc->call(c, B + 0x1183c0ull, B + 0x43c162ull); RC_LOAD(); }
     { c->flags = ArithFlags(c->flags, 2, GuestLoad<uint64_t>(r[4] + 0x20ull), r[7], (GuestLoad<uint64_t>(r[4] + 0x20ull) & r[7]), 8); GuestStore<uint64_t>(r[4] + 0x20ull, (GuestLoad<uint64_t>(r[4] + 0x20ull) & r[7])); }
 L_43c167: ;
     r[9] = (r[9] & ~0xffull) | ((GuestLoad<uint8_t>(r[3] + 0x70ull)) & 0xffull);
@@ -34583,7 +34675,7 @@ __attribute__((visibility("hidden"))) void f_43c1a0(CpuContext *c) {
     GuestStoreV(r[0] + (uint64_t)(-0x98), v[12]);
     { std::memcpy(&v[9], &v[1], 16); }
     GuestStoreV(r[0] + (uint64_t)(-0xa8), v[13]);
-    { RC_SAVE(); rc->call(c, B + 0x522c60ull, B + 0x43c200ull); RC_LOAD(); }
+    { extern RcFn d_522c60; RC_SAVE(); if (d_522c60) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x43c200ull); c->rip = B + 0x522c60ull; d_522c60(c); } else rc->call(c, B + 0x522c60ull, B + 0x43c200ull); RC_LOAD(); }
     r[0] = GuestLoad<uint64_t>(r[1] + 0x18ull);
     r[1] = GuestLoad<uint64_t>(r[1] + 0x100ull);
     { std::memcpy(&v[13], &v[0], 16); }
@@ -34609,7 +34701,7 @@ L_43c26e: ;
     { c->flags = ArithFlags(c->flags, 1, GuestLoad<uint8_t>(r[14] + 0xa7bull), 0x0ull, (GuestLoad<uint8_t>(r[14] + 0xa7bull) - 0x0ull), 1); }
     if (Cond(0x4, c->flags)) goto L_43c2f9;
     r[1] = r[15];
-    { RC_SAVE(); rc->call(c, B + 0x351a30ull, B + 0x43c28dull); RC_LOAD(); }
+    { extern RcFn d_351a30; RC_SAVE(); if (d_351a30) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x43c28dull); c->rip = B + 0x351a30ull; d_351a30(c); } else rc->call(c, B + 0x351a30ull, B + 0x43c28dull); RC_LOAD(); }
     r[1] = r[4] + 0x70ull;
     { std::memset(&v[1], 0, 16); v[1].f[0] = GuestLoad<float>(r[14] + 0xa10ull); }
     { v[0].f[0] = v[0].f[0] * GuestLoad<float>(r[14] + 0xa14ull); }
@@ -34634,7 +34726,7 @@ L_43c2f9: ;
     r[8] = GuestLoad<uint64_t>(r[7] + 0x108ull);
     r[2] = r[4] + 0x70ull;
     r[1] = r[8];
-    { RC_SAVE(); rc->call(c, B + 0x9768e0ull, B + 0x43c30dull); RC_LOAD(); }
+    { extern RcFn d_9768e0; RC_SAVE(); if (d_9768e0) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x43c30dull); c->rip = B + 0x9768e0ull; d_9768e0(c); } else rc->call(c, B + 0x9768e0ull, B + 0x43c30dull); RC_LOAD(); }
     r[1] = r[8];
     { std::memset(&v[4], 0, 16); v[4].f[0] = GuestLoad<float>(r[8] + 0x88ull); }
     { std::memset(&v[3], 0, 16); v[3].f[0] = GuestLoad<float>(r[4] + 0x70ull); }
@@ -34740,7 +34832,7 @@ L_43c35b: ;
     GuestStore<float>(r[5] + 0xc8ull, v[0].f[0]);
     { extern RcFn d_720954; RC_SAVE(); if (d_720954) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x43c512ull); c->rip = B + 0x720954ull; d_720954(c); } else rc->call(c, B + 0x720954ull, B + 0x43c512ull); RC_LOAD(); }
     r[1] = r[15];
-    { RC_SAVE(); rc->call(c, B + 0x38e600ull, B + 0x43c51aull); RC_LOAD(); }
+    { extern RcFn d_38e600; RC_SAVE(); if (d_38e600) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x43c51aull); c->rip = B + 0x38e600ull; d_38e600(c); } else rc->call(c, B + 0x38e600ull, B + 0x43c51aull); RC_LOAD(); }
     r[1] = GuestLoad<uint64_t>(r[7] + 0x18ull);
     GuestStore<float>(r[4] + 0x48ull, v[11].f[0]);
     r[0] = r[5] + (uint64_t)(-0x60);
@@ -34766,7 +34858,7 @@ L_43c35b: ;
     { v[1].f[0] = v[1].f[0] * v[7].f[0]; }
     { v[0].f[0] = v[0].f[0] + v[1].f[0]; }
     { v[0].f[0] = v[0].f[0] + v[12].f[0]; }
-    { RC_SAVE(); rc->call(c, B + 0x11067e6ull, B + 0x43c595ull); RC_LOAD(); }
+    { extern RcFn d_11067e6; RC_SAVE(); if (d_11067e6) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x43c595ull); c->rip = B + 0x11067e6ull; d_11067e6(c); } else rc->call(c, B + 0x11067e6ull, B + 0x43c595ull); RC_LOAD(); }
     { c->flags = ArithFlags(c->flags, 1, GuestLoad<uint8_t>(r[6] + 0x119ull), 0x0ull, (GuestLoad<uint8_t>(r[6] + 0x119ull) - 0x0ull), 1); }
     { std::memcpy(&v[2], &v[0], 16); }
     { for (int k = 0; k < 4; ++k) v[2].q[k] ^= v[10].q[k]; }
@@ -34844,18 +34936,18 @@ L_43c652: ;
     r[2] = r[5] + (uint64_t)(-0x50);
     r[1] = r[3];
     { std::memcpy(&v[6], &v[0], 16); }
-    { RC_SAVE(); rc->call(c, B + 0x9768e0ull, B + 0x43c6ecull); RC_LOAD(); }
+    { extern RcFn d_9768e0; RC_SAVE(); if (d_9768e0) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x43c6ecull); c->rip = B + 0x9768e0ull; d_9768e0(c); } else rc->call(c, B + 0x9768e0ull, B + 0x43c6ecull); RC_LOAD(); }
     { std::memset(&v[3], 0, 16); v[3].f[0] = GuestLoad<float>(r[0]); }
     { std::memset(&v[0], 0, 16); v[0].f[0] = GuestLoad<float>(r[0] + 0x4ull); }
     { v[0].f[0] = v[0].f[0] * v[0].f[0]; }
     { v[3].f[0] = v[3].f[0] * v[3].f[0]; }
     { v[0].f[0] = v[0].f[0] + v[3].f[0]; }
     { v[0].f[0] = v[0].f[0] + v[12].f[0]; }
-    { RC_SAVE(); rc->call(c, B + 0x11067e6ull, B + 0x43c70bull); RC_LOAD(); }
+    { extern RcFn d_11067e6; RC_SAVE(); if (d_11067e6) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x43c70bull); c->rip = B + 0x11067e6ull; d_11067e6(c); } else rc->call(c, B + 0x11067e6ull, B + 0x43c70bull); RC_LOAD(); }
     r[2] = r[5] + (uint64_t)(-0x50);
     r[1] = r[3];
     GuestStore<float>(r[7] + 0x110ull, v[0].f[0]);
-    { RC_SAVE(); rc->call(c, B + 0x9768e0ull, B + 0x43c71full); RC_LOAD(); }
+    { extern RcFn d_9768e0; RC_SAVE(); if (d_9768e0) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x43c71full); c->rip = B + 0x9768e0ull; d_9768e0(c); } else rc->call(c, B + 0x9768e0ull, B + 0x43c71full); RC_LOAD(); }
     r[1] = r[0];
     { extern RcFn d_9c418c; RC_SAVE(); if (d_9c418c) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x43c727ull); c->rip = B + 0x9c418cull; d_9c418c(c); } else rc->call(c, B + 0x9c418cull, B + 0x43c727ull); RC_LOAD(); }
     r[1] = GuestLoad<uint64_t>(r[7] + 0x18ull);
@@ -35016,18 +35108,18 @@ L_43c953: ;
     { std::memcpy(&v[6], &v[8], 16); }
     { v[6].f[0] = v[6].f[0] * v[0].f[0]; }
     { std::memcpy(&v[0], &v[6], 16); }
-    { RC_SAVE(); rc->call(c, B + 0xd7f128ull, B + 0x43c98full); RC_LOAD(); }
+    { extern RcFn d_d7f128; RC_SAVE(); if (d_d7f128) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x43c98full); c->rip = B + 0xd7f128ull; d_d7f128(c); } else rc->call(c, B + 0xd7f128ull, B + 0x43c98full); RC_LOAD(); }
     { std::memcpy(&v[9], &v[0], 16); }
     { std::memcpy(&v[0], &v[6], 16); }
-    { RC_SAVE(); rc->call(c, B + 0xd7f11cull, B + 0x43c99bull); RC_LOAD(); }
+    { extern RcFn d_d7f11c; RC_SAVE(); if (d_d7f11c) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x43c99bull); c->rip = B + 0xd7f11cull; d_d7f11c(c); } else rc->call(c, B + 0xd7f11cull, B + 0x43c99bull); RC_LOAD(); }
     r[0] = GuestLoad<uint64_t>(r[3] + 0x18ull);
     { std::memcpy(&v[7], &v[0], 16); }
     { v[8].f[0] = v[8].f[0] * GuestLoad<float>(r[0] + 0xa10ull); }
     { std::memcpy(&v[0], &v[8], 16); }
-    { RC_SAVE(); rc->call(c, B + 0xd7f128ull, B + 0x43c9b4ull); RC_LOAD(); }
+    { extern RcFn d_d7f128; RC_SAVE(); if (d_d7f128) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x43c9b4ull); c->rip = B + 0xd7f128ull; d_d7f128(c); } else rc->call(c, B + 0xd7f128ull, B + 0x43c9b4ull); RC_LOAD(); }
     { std::memcpy(&v[6], &v[0], 16); }
     { std::memcpy(&v[0], &v[8], 16); }
-    { RC_SAVE(); rc->call(c, B + 0xd7f11cull, B + 0x43c9c0ull); RC_LOAD(); }
+    { extern RcFn d_d7f11c; RC_SAVE(); if (d_d7f11c) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x43c9c0ull); c->rip = B + 0xd7f11cull; d_d7f11c(c); } else rc->call(c, B + 0xd7f11cull, B + 0x43c9c0ull); RC_LOAD(); }
     { v[6].f[0] = v[6].f[0] * v[9].f[0]; }
     { v[0].f[0] = v[0].f[0] * v[7].f[0]; }
     { v[0].f[0] = v[0].f[0] + v[6].f[0]; }
@@ -36575,7 +36667,7 @@ L_43dd30: ;
     { c->flags = ArithFlags(c->flags, 2, (r[7] & 0xffull), 0x1ull, ((r[7] & 0xffull) & 0x1ull), 1); }
     if (Cond(0x4, c->flags)) goto L_43dd46;
     r[1] = r[3];
-    { RC_SAVE(); rc->call(c, B + 0x9ae58ull, B + 0x43dd46ull); RC_LOAD(); }
+    { extern RcFn d_9ae58; RC_SAVE(); if (d_9ae58) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x43dd46ull); c->rip = B + 0x9ae58ull; d_9ae58(c); } else rc->call(c, B + 0x9ae58ull, B + 0x43dd46ull); RC_LOAD(); }
 L_43dd46: ;
     r[0] = r[3];
     r[3] = GuestLoad<uint64_t>(r[4] + 0x48ull);
@@ -36702,7 +36794,7 @@ __attribute__((visibility("hidden"))) void f_43de80(CpuContext *c) {
     { c->flags = ArithFlags(c->flags, 2, (r[3] & 0xffull), 0x1ull, ((r[3] & 0xffull) & 0x1ull), 1); }
     if (Cond(0x4, c->flags)) goto L_43dea1;
     r[1] = r[7];
-    { RC_SAVE(); rc->call(c, B + 0x9ae58ull, B + 0x43dea1ull); RC_LOAD(); }
+    { extern RcFn d_9ae58; RC_SAVE(); if (d_9ae58) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x43dea1ull); c->rip = B + 0x9ae58ull; d_9ae58(c); } else rc->call(c, B + 0x9ae58ull, B + 0x43dea1ull); RC_LOAD(); }
 L_43dea1: ;
     r[0] = r[7];
     r[3] = GuestLoad<uint64_t>(r[4] + 0x30ull);
@@ -37386,7 +37478,7 @@ L_43e821: ;
     if (Cond(0xe, c->flags)) goto L_43eaef;
     { std::memset(&v[0], 0, 16); v[0].f[0] = GuestLoad<float>((uint64_t)(B + 0x1f0cc20ull)); }
     { v[0].f[0] = v[0].f[0] * GuestLoad<float>(r[6] + 0x19cull); }
-    { RC_SAVE(); rc->call(c, B + 0xd7f11cull, B + 0x43e8a7ull); RC_LOAD(); }
+    { extern RcFn d_d7f11c; RC_SAVE(); if (d_d7f11c) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x43e8a7ull); c->rip = B + 0xd7f11cull; d_d7f11c(c); } else rc->call(c, B + 0xd7f11cull, B + 0x43e8a7ull); RC_LOAD(); }
     { std::memset(&v[1], 0, 16); v[1].f[0] = GuestLoad<float>(r[4] + 0x40ull); }
     { std::memset(&v[2], 0, 16); v[2].f[0] = GuestLoad<float>(r[4] + 0x44ull); }
     r[6] = r[7];
@@ -39109,7 +39201,7 @@ L_43fd41: ;
     { c->flags = ArithFlags(c->flags, 2, (r[6] & 0xffull), 0x1ull, ((r[6] & 0xffull) & 0x1ull), 1); }
     if (Cond(0x4, c->flags)) goto L_43fd57;
     r[1] = r[7];
-    { RC_SAVE(); rc->call(c, B + 0x9ae58ull, B + 0x43fd57ull); RC_LOAD(); }
+    { extern RcFn d_9ae58; RC_SAVE(); if (d_9ae58) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x43fd57ull); c->rip = B + 0x9ae58ull; d_9ae58(c); } else rc->call(c, B + 0x9ae58ull, B + 0x43fd57ull); RC_LOAD(); }
 L_43fd57: ;
     r[0] = r[7];
     r[3] = GuestLoad<uint64_t>(r[4] + 0x48ull);
