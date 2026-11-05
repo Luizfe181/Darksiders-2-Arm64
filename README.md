@@ -33,3 +33,42 @@ Este projeto consiste na recompilação estática (port nativo) do jogo **Darksi
 │   └── android/        # Scripts de build CMake/NDK e projeto Android Studio/Gradle
 ├── tools/              # Ferramentas do recompilador em Python (main.py, coverage.py)
 └── dist/               # Ficheiros APK gerados para testes no dispositivo
+🚀 Como Compilar e Testar
+Pré-requisitos
+Python 3.10+
+
+Android NDK (r27c ou superior recomendado)
+
+CMake & Ninja Build
+
+Android SDK (ferramenta adb configurada no ambiente)
+
+1. Regenerar o Código C
+Para processar o binário do jogo e aplicar as atualizações mais recentes do tradutor de instruções:
+
+Bash
+python tools/recompiler/main.py --exe game_original/Darksiders2.exe --out out/recomp_full
+2. Medir a Cobertura do Recompilador
+Para verificar a percentagem atual de instruções traduzidas e o total de fallbacks:
+
+Bash
+python tools/recompiler/coverage.py
+3. Compilar a Runtime e Gerar o APK
+Para empacotar a biblioteca nativa .so e gerar o APK de testes na pasta dist/:
+
+PowerShell
+powershell -File source/android/build_apk.ps1
+4. Instalar no Dispositivo via ADB
+PowerShell
+& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" install -r dist\darksiders2-boot-test.apk
+📜 Licença & Créditos
+Desenvolvedor: Luizfe181
+
+Ferramenta de Recompilação: Baseado na arquitetura rea.
+
+Darksiders II: © THQ Nordic / Vigil Games. Todos os direitos reservados.
+
+
+---
+
+Se quiseres ajustar algum detalhe das seções ou adicionar alguma funcionalidade específica antes de env
