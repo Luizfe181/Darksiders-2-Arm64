@@ -14,7 +14,11 @@
 #include "host_runtime.h"
 #include "platform_bridge.h"
 #include "render_context.h"
+#include "game_image.h"
+#include "rc_runtime.h"
 #include "win32_stubs.h"
+
+extern const vigil::recomp::RcApi* rc;
 
 namespace darksiders2::host {
 namespace {
@@ -368,6 +372,7 @@ bool HostRuntime::Initialize(int argc, char* argv[]) {
         SDL_Quit();
         return false;
     }
+    win32::SetRenderingWindow(reinterpret_cast<std::uint64_t>(m_window));
 
     if (!CreateVulkanContext()) {
         LOGE("Vulkan indisponivel: nao ha como apresentar o renderizador.");
@@ -377,10 +382,48 @@ bool HostRuntime::Initialize(int argc, char* argv[]) {
         return false;
     }
 
-    // DXVK e opcional: sem ele os entry points D3D11 falham de forma limpa em
-    // vez de crashar, e o log diz o que falta.
-    if (!win32::LoadDxvk()) {
-        LOGE("DXVK 1.10.3 nao encontrado (libdxvk_d3d11.so); D3D11/DXGI indisponiveis.");
+    // DXVK e opcional. A tela de configuracao pode apontar um .so instalado
+    // pelo utilizador (dxvk_library); sem isso o loader procura um empacotado
+    // no APK. Sem nenhum, os entry points D3D11 falham de forma limpa.
+    const std::string dxvk_path = ConfiguredValue("dxvk_library");
+    if (!win32::LoadDxvk(dxvk_path.empty() ? nullptr : dxvk_path.c_str())) {
+        if (dxvk_path.empty()) {
+            LOGE("DXVK nao encontrado (nem dxvk_library, nem empacotado); D3D11 indisponivel.");
+        } else {
+            LOGE("DXVK nao carregou de %s; D3D11/DXGI indisponiveis.", dxvk_path.c_str());
+        }
+    }
+
+    // Codigo do jogo: mapeia o executavel do jogador, liga a IAT aos stubs e
+    // arranca o entry point recompilado. Para no primeiro import/instrucao que
+    // ainda nao existe, com o offset no log.
+    if (!m_data_root.empty()) {
+        const std::string exe = m_data_root + "/Darksiders2.exe";
+        static vigil::recomp::GameImage image;
+        if (!image.Map(exe.c_str())) {
+            LOGE("Jogo: nao consegui mapear %s", exe.c_str());
+        } else {
+            image.PatchImports();
+            LOGI("Jogo: imagem em 0x%llx, entry 0x%llx, imports %llu (%llu em falta)",
+                 static_cast<unsigned long long>(image.base()),
+                 static_cast<unsigned long long>(image.entry()),
+                 static_cast<unsigned long long>(image.imports().size()),
+                 static_cast<unsigned long long>(image.unresolved()));
+
+            vigil::recomp::InstallRcApi(image.base(), image.size());
+            win32::SetRecompApi(rc);
+            if (vigil::recomp::InitializeGameLibrary()) {
+                vigil::recomp::RunStats stats;
+                vigil::recomp::RunGuest(image.entry(), image.base(), &stats);
+                LOGI("Jogo: parou — calls=%llu thunks=%llu interp=%llu unhandled=%llu",
+                     static_cast<unsigned long long>(stats.calls),
+                     static_cast<unsigned long long>(stats.thunk_calls),
+                     static_cast<unsigned long long>(stats.interpreted),
+                     static_cast<unsigned long long>(stats.unhandled));
+            } else {
+                LOGE("Jogo: build sem funcoes recompiladas (out/recomp_full vazio).");
+            }
+        }
     }
 
     m_state = RuntimeState::kRunning;
@@ -426,6 +469,7 @@ void HostRuntime::Shutdown() {
     }
 
     if (m_window != nullptr) {
+        win32::SetRenderingWindow(0);
         SDL_DestroyWindow(m_window);
         m_window = nullptr;
     }

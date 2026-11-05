@@ -90,6 +90,7 @@ struct alignas(64) CpuContext {
     uint64_t fs_base;        // 0x300  Win64 TLS base (TEB) -- x86-64 has no fs register
     uint64_t gs_base;        // 0x308
     void    *host_thread;    // 0x310  back-pointer for the runtime
+    alignas(16) uint8_t guest_teb[0x100]; // Synthetic Win64 TEB for GS-relative accesses
 };
 
 static_assert(offsetof(CpuContext, r) == 0x000, "r offset");
@@ -98,7 +99,15 @@ static_assert(offsetof(CpuContext, flags) == 0x088, "flags offset");
 static_assert(offsetof(CpuContext, v) == 0x0A0, "v offset");
 static_assert(offsetof(CpuContext, mxcsr) == 0x2A0, "mxcsr offset");
 static_assert(offsetof(CpuContext, fs_base) == 0x300, "fs_base offset");
+static_assert(offsetof(CpuContext, gs_base) == 0x308, "gs_base offset");
 static_assert(sizeof(CpuContext) % 64 == 0, "CpuContext cache-line sized");
+
+inline void InitializeGuestTeb(CpuContext &context, uint64_t stack_base) noexcept {
+    std::memset(context.guest_teb, 0, sizeof(context.guest_teb));
+    context.gs_base = reinterpret_cast<uint64_t>(context.guest_teb);
+    std::memcpy(context.guest_teb + 0x08, &stack_base, sizeof(stack_base));
+    std::memcpy(context.guest_teb + 0x30, &context.gs_base, sizeof(context.gs_base));
+}
 
 // ---------------------------------------------------------------------------
 // Guest memory. Guest address == host address (image_base + image offset).
@@ -196,8 +205,8 @@ inline bool Cond(int cc, uint64_t f) noexcept {
         case 0x7: return !cf && !zf;            // a
         case 0x8: return sf;                    // s
         case 0x9: return !sf;                   // ns
-        case 0xa: return false;                 // p (parity, approximated)
-        case 0xb: return true;                  // np
+        case 0xa: return (f & F_PF) != 0;        // p
+        case 0xb: return (f & F_PF) == 0;        // np
         case 0xc: return sf != of;              // l
         case 0xd: return sf == of;              // ge
         case 0xe: return zf || (sf != of);      // le

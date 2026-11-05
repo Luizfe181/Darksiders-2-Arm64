@@ -54,11 +54,16 @@ for _i, _n in enumerate(REG_NAMES):
 for _n, _i in (("eax", 0), ("ecx", 1), ("edx", 2), ("ebx", 3),
                ("esp", 4), ("ebp", 5), ("esi", 6), ("edi", 7)):
     ALIASES[_n] = (_i, 4, False)
+for _n, _i in (("ax", 0), ("cx", 1), ("dx", 2), ("bx", 3),
+               ("sp", 4), ("bp", 5), ("si", 6), ("di", 7)):
+    ALIASES[_n] = (_i, 2, False)
 for _i in range(8, 16):
     ALIASES[f"r{_i}d"] = (_i, 4, False)
     ALIASES[f"r{_i}w"] = (_i, 2, False)
     ALIASES[f"r{_i}b"] = (_i, 1, False)
 for _n, _i in (("al", 0), ("cl", 1), ("dl", 2), ("bl", 3)):
+    ALIASES[_n] = (_i, 1, False)
+for _n, _i in (("spl", 4), ("bpl", 5), ("sil", 6), ("dil", 7)):
     ALIASES[_n] = (_i, 1, False)
 for _n, _i in (("ah", 0), ("ch", 1), ("dh", 2), ("bh", 3)):
     ALIASES[_n] = (_i, 1, True)
@@ -70,6 +75,7 @@ CC = {"o": 0x0, "no": 0x1, "b": 0x2, "c": 0x2, "nae": 0x2, "ae": 0x3, "nb": 0x3,
       "le": 0xe, "ng": 0xe, "g": 0xf, "nle": 0xf}
 
 MASK = (1 << 64) - 1
+KNOWN_LEAF_FUNCTIONS = ((0x86C20, 0x86C6D, b"\x33\xC0\x48\x89"),)
 
 
 # ---------------------------------------------------------------------------
@@ -138,6 +144,11 @@ def build_function_map(pe: PE) -> dict[int, int]:
     funcs = pe.pdata_functions()
     if pe.entry_rva not in funcs:
         funcs[pe.entry_rva] = pe.entry_rva + 0x1000
+    for begin, end, signature in KNOWN_LEAF_FUNCTIONS:
+        code = pe.read_rva(begin, len(signature))
+        terminator = pe.read_rva(end - 1, 1)
+        if code == signature and terminator == b"\xC3" and begin not in funcs:
+            funcs[begin] = end
     return funcs
 
 
@@ -149,16 +160,27 @@ class Emitter:
         self.pe = pe
         self.funcs = funcs
         self.stats = {"insn": 0, "native": 0, "func": 0}
+        # Instruction starts of the function being emitted. A branch to an
+        # address that is not one of them lands inside another instruction
+        # (overlapping code), and emitting a goto to it would reference a label
+        # that never exists.
+        self._starts: set[int] = set()
 
     # ---- operand helpers --------------------------------------------------
     def mem_expr(self, insn, op) -> str | None:
         m = op.mem
         terms: list[str] = []
+        segment_name = insn.reg_name(m.segment) if m.segment else None
+        if segment_name == "fs":
+            terms.append("c->fs_base")
+        elif segment_name == "gs":
+            terms.append("c->gs_base")
         base_name = insn.reg_name(m.base) if m.base else None
         if base_name:
             if base_name == "rip":           # absolute target, expressed image-relative
                 target = (insn.address + insn.size + m.disp) - self.pe.image_base
-                return f"(uint64_t)(B + 0x{target & MASK:x}ull)"
+                terms.append(f"(uint64_t)(B + 0x{target & MASK:x}ull)")
+                return " + ".join(terms)
             if base_name not in REG_INDEX:
                 return None
             terms.append(f"r[{REG_INDEX[base_name]}]")
@@ -223,11 +245,43 @@ class Emitter:
     # ---- instruction translation -----------------------------------------
     def translate(self, insn, start: int, end: int) -> str | None:
         mn = insn.mnemonic
+        locked = mn.startswith("lock ")
+        if locked:
+            mn = mn[5:]
         ops = insn.operands
         size = ops[0].size if ops else 0
 
-        if mn in ("nop", "endbr64", "fnop"):
+        if mn in ("nop", "endbr64", "fnop", "int3", "prefetchw"):
             return ""
+
+        if mn == "cdqe":
+            return "r[0] = (uint64_t)(int64_t)(int32_t)(r[0] & 0xffffffffull);"
+        if mn == "cdq":
+            return "r[2] = ((int32_t)r[0] < 0) ? 0xffffffffull : 0;"
+        if mn == "cqo":
+            return "r[2] = ((int64_t)r[0] < 0) ? ~0ull : 0;"
+        if mn == "rdtsc":
+            return ("{ const uint64_t ticks = static_cast<uint64_t>("
+                    "std::chrono::steady_clock::now().time_since_epoch().count()); "
+                    "r[0] = static_cast<uint32_t>(ticks); "
+                    "r[2] = static_cast<uint32_t>(ticks >> 32); }")
+        if mn == "cpuid":
+            return (
+                "{ const uint32_t leaf = static_cast<uint32_t>(r[RAX]); "
+                "uint32_t eax = 0, ebx = 0, ecx = 0, edx = 0; "
+                "if (leaf == 0) { eax = 1; ebx = 0x756e6547u; "
+                "edx = 0x49656e69u; ecx = 0x6c65746eu; } "
+                "else if (leaf == 1) { eax = 0x000006a1u; "
+                "edx = (1u << 0) | (1u << 4) | (1u << 5) | (1u << 8) | "
+                "(1u << 15) | (1u << 23) | (1u << 24) | (1u << 25) | (1u << 26); } "
+                "else if (leaf == 0x80000000u) { eax = 0x80000001u; } "
+                "else if (leaf == 0x80000001u) { edx = (1u << 11) | "
+                "(1u << 20) | (1u << 29); } "
+                "r[RAX] = eax; r[RBX] = ebx; r[RCX] = ecx; r[RDX] = edx; }")
+
+        if mn.startswith("set") and mn[3:] in CC and len(ops) == 1:
+            return self.wr(insn, ops[0], 1,
+                           f"(uint8_t)Cond(0x{CC[mn[3:]]:x}, c->flags)")
 
         if mn == "ret":
             extra = ops[0].imm if ops and ops[0].type == CS_OP_IMM else 0
@@ -236,9 +290,11 @@ class Emitter:
 
         if mn == "jmp":
             if ops[0].type == CS_OP_IMM:
-                t = (ops[0].imm & MASK) - self.pe.image_base
-                if start <= t < end:
+                t = ((ops[0].imm & MASK) - self.pe.image_base) & MASK
+                if start <= t < end and t in self._starts:
                     return f"goto L_{t:x};"
+                if start <= t < end:
+                    return None       # inside the function but not on an instruction start
                 return f"{{ RC_SAVE(); c->rip = B + 0x{t:x}ull; rc->tail(c); return; }}"
             v = self.rd(insn, ops[0], 8)
             if v is None:
@@ -249,15 +305,19 @@ class Emitter:
         if mn.startswith("j") and mn[1:] in CC:
             if ops[0].type != CS_OP_IMM:
                 return None
-            t = (ops[0].imm & MASK) - self.pe.image_base
-            if not (start <= t < end):
-                return None
-            return f"if (Cond(0x{CC[mn[1:]]:x}, c->flags)) goto L_{t:x};"
+            t = ((ops[0].imm & MASK) - self.pe.image_base) & MASK
+            if start <= t < end:
+                if t not in self._starts:
+                    return None
+                return f"if (Cond(0x{CC[mn[1:]]:x}, c->flags)) goto L_{t:x};"
+            return (f"if (Cond(0x{CC[mn[1:]]:x}, c->flags)) "
+                    f"{{ RC_SAVE(); c->rip = B + 0x{t:x}ull; "
+                    "rc->tail(c); return; }")
 
         if mn == "call":
             nxt = insn.address + insn.size - self.pe.image_base
             if ops[0].type == CS_OP_IMM:
-                t = (ops[0].imm & MASK) - self.pe.image_base
+                t = ((ops[0].imm & MASK) - self.pe.image_base) & MASK
                 if t in self.funcs:
                     return (f"{{ extern RcFn d_{t:x}; RC_SAVE(); "
                             f"if (d_{t:x}) {{ c->r[RSP] -= 8; "
@@ -298,6 +358,196 @@ class Emitter:
                 return None
             expr = v if mn == "movzx" else f"(uint64_t)(int64_t)(int{ssz * 8}_t)({v})"
             return self.wr(insn, ops[0], size, expr)
+
+        if locked and mn in ("add", "inc", "dec", "xadd"):
+            if ops[0].type != CS_OP_MEM or size not in (1, 2, 4, 8):
+                return None
+            address = self.mem_expr(insn, ops[0])
+            if address is None:
+                return None
+            ctype = f"uint{size * 8}_t"
+            if mn in ("inc", "dec"):
+                operand = "1"
+                delta = "1" if mn == "inc" else "-1"
+                kind = 0 if mn == "inc" else 1
+                keep_cf = True
+            else:
+                if len(ops) != 2:
+                    return None
+                operand = self.rd(insn, ops[1], size)
+                if operand is None:
+                    return None
+                delta = operand
+                kind = 0
+                keep_cf = False
+            src_write = ""
+            if mn == "xadd":
+                src_write = self.wr(insn, ops[1], size, "old") or ""
+                if not src_write:
+                    return None
+            result = f"(old {'+' if kind == 0 else '-'} operand)"
+            flags = self.arith(kind, "old", "operand", result, size, keep_cf)
+            operation = "__atomic_fetch_add"
+            atomic_delta = delta if mn not in ("inc", "dec") else f"static_cast<{ctype}>({delta})"
+            return (f"{{ auto *p = reinterpret_cast<{ctype} *>({address}); "
+                    f"const {ctype} operand = static_cast<{ctype}>({operand}); "
+                    f"const uint64_t old = {operation}(p, {atomic_delta}, "
+                    f"__ATOMIC_SEQ_CST); {flags} {src_write} }}")
+
+        if mn == "cmpxchg":
+            dst = self.rd(insn, ops[0], size)
+            src = self.rd(insn, ops[1], size)
+            if dst is None or src is None or size not in (1, 2, 4, 8):
+                return None
+
+            mask = (1 << (size * 8)) - 1
+            acc = f"(r[0] & 0x{mask:x}ull)"
+            acc_write = (f"r[0] = observed;" if size == 8 else
+                         "r[0] = (uint32_t)observed;" if size == 4 else
+                         f"r[0] = (r[0] & ~0x{mask:x}ull) | "
+                         f"(observed & 0x{mask:x}ull);")
+            flags = self.arith(1, "accumulator", "observed",
+                               "(accumulator - observed)", size)
+
+            if ops[0].type == CS_OP_MEM:
+                address = self.mem_expr(insn, ops[0])
+                if address is None:
+                    return None
+                ctype = f"uint{size * 8}_t"
+                return (f"{{ auto *p = reinterpret_cast<{ctype} *>({address}); "
+                        f"const uint64_t accumulator = {acc}; "
+                        f"{ctype} expected = __atomic_load_n(p, __ATOMIC_SEQ_CST); "
+                        "while (true) { const uint64_t observed = expected; "
+                        f"{flags} if (accumulator != observed) {{ {acc_write} break; }} "
+                        f"if (__atomic_compare_exchange_n(p, &expected, "
+                        f"static_cast<{ctype}>({src}), false, __ATOMIC_SEQ_CST, "
+                        "__ATOMIC_SEQ_CST)) break; } }")
+
+            dst_write = self.wr(insn, ops[0], size, src)
+            if dst_write is None:
+                return None
+            return (f"{{ const uint64_t accumulator = {acc}; "
+                    f"const uint64_t observed = {dst}; {flags} "
+                    f"if (accumulator == observed) {{ {dst_write} }} "
+                    f"else {{ {acc_write} }} }}")
+
+        if mn == "imul":
+            if len(ops) == 1:
+                operand = self.rd(insn, ops[0], size)
+                acc = {
+                    1: "(r[0] & 0xffull)",
+                    2: "(r[0] & 0xffffull)",
+                    4: "(r[0] & 0xffffffffull)",
+                    8: "r[0]",
+                }.get(size)
+                if operand is None or acc is None:
+                    return None
+                bits = size * 8
+                wide = f"int{bits * 2}_t" if bits < 64 else "__int128"
+                low_mask = f"0x{(1 << bits) - 1:x}ull"
+                signed = f"int{bits}_t"
+                low_write = ("r[0] = (r[0] & ~0xffull) | (low & 0xffull);"
+                             if size == 1 else
+                             "r[0] = (r[0] & ~0xffffull) | (low & 0xffffull);"
+                             if size == 2 else
+                             "r[0] = (uint32_t)low;" if size == 4 else
+                             "r[0] = low;")
+                high_write = (f"r[0] = (r[0] & ~0xff00ull) | ((high & 0xffull) << 8);"
+                              if size == 1 else
+                              "r[2] = (r[2] & ~0xffffull) | (high & 0xffffull);"
+                              if size == 2 else
+                              "r[2] = (uint32_t)high;" if size == 4 else
+                              "r[2] = high;")
+                sign_bit = f"0x{1 << (bits - 1):x}ull"
+                return (f"{{ const {wide} product = ({wide})({signed})({acc}) * "
+                        f"({wide})({signed})({operand}); "
+                        f"const uint64_t low = (uint64_t)product & {low_mask}; "
+                        f"const uint64_t high = ((uint64_t)(product >> {bits})) & {low_mask}; "
+                        f"{low_write} {high_write} "
+                        f"if (high != ((low & {sign_bit}) ? {low_mask} : 0)) "
+                        "c->flags |= F_CF | F_OF; else c->flags &= ~(uint64_t)(F_CF | F_OF); }")
+            if len(ops) not in (2, 3) or size not in (2, 4, 8):
+                return None
+            lhs = self.rd(insn, ops[1] if len(ops) == 3 else ops[0], size)
+            rhs = self.rd(insn, ops[2] if len(ops) == 3 else ops[1], size)
+            if lhs is None or rhs is None:
+                return None
+            bits = size * 8
+            wide = "int64_t" if bits < 64 else "__int128"
+            signed = f"int{bits}_t"
+            dst_write = self.wr(insn, ops[0], size, "low")
+            if dst_write is None:
+                return None
+            mask = f"0x{(1 << bits) - 1:x}ull"
+            return (f"{{ const {wide} product = ({wide})({signed})({lhs}) * "
+                    f"({wide})({signed})({rhs}); const uint64_t low = "
+                    f"(uint64_t)product & {mask}; {dst_write} "
+                    f"if (product < -((({wide})1) << {bits - 1}) || "
+                    f"product > ((({wide})1 << {bits - 1}) - 1)) "
+                    "c->flags |= F_CF | F_OF; else c->flags &= ~(uint64_t)(F_CF | F_OF); }")
+
+        if mn in ("bt", "bts", "btr", "btc"):
+            if ops[0].type != CS_OP_REG or size not in (2, 4, 8):
+                return None
+            value = self.rd(insn, ops[0], size)
+            index = self.rd(insn, ops[1], size)
+            if value is None or index is None:
+                return None
+            bit = f"({index} & {size * 8 - 1})"
+            write = ""
+            if mn != "bt":
+                op = {"bts": "|", "btr": "&", "btc": "^"}[mn]
+                mask = f"(1ull << {bit})"
+                expr = f"({value} {op} {'~' if mn == 'btr' else ''}{mask})"
+                write = self.wr(insn, ops[0], size, expr) or ""
+                if not write:
+                    return None
+            return (f"{{ const uint64_t tested = {value}; "
+                    f"c->flags = (c->flags & ~(uint64_t)F_CF) | "
+                    f"(((tested >> {bit}) & 1ull) ? F_CF : 0); {write} }}")
+
+        if mn == "xchg":
+            if size not in (1, 2, 4, 8):
+                return None
+            ctype = f"uint{size * 8}_t"
+            if ops[0].type == CS_OP_MEM or ops[1].type == CS_OP_MEM:
+                mem_op, reg_op = (ops[0], ops[1]) if ops[0].type == CS_OP_MEM else (ops[1], ops[0])
+                address = self.mem_expr(insn, mem_op)
+                value = self.rd(insn, reg_op, size)
+                writeback = self.wr(insn, reg_op, size, "old")
+                if address is None or value is None or writeback is None:
+                    return None
+                return (f"{{ auto *p = reinterpret_cast<{ctype} *>({address}); "
+                        f"const {ctype} value = static_cast<{ctype}>({value}); "
+                        f"const {ctype} old = __atomic_exchange_n(p, value, "
+                        f"__ATOMIC_SEQ_CST); {writeback} }}")
+
+            first = self.rd(insn, ops[0], size)
+            second = self.rd(insn, ops[1], size)
+            write_first = self.wr(insn, ops[0], size, "second")
+            write_second = self.wr(insn, ops[1], size, "first")
+            if None in (first, second, write_first, write_second):
+                return None
+            return (f"{{ const uint64_t first = {first}; const uint64_t second = {second}; "
+                    f"{write_first} {write_second} }}")
+
+        if mn == "sbb":
+            a = self.rd(insn, ops[0], size)
+            b = self.rd(insn, ops[1], size)
+            if a is None or b is None or size not in (1, 2, 4, 8):
+                return None
+            mask = f"0x{(1 << (size * 8)) - 1:x}ull"
+            result = f"((a - b - carry) & {mask})"
+            write = self.wr(insn, ops[0], size, "result")
+            if write is None:
+                return None
+            return (f"{{ const uint64_t carry = (c->flags & F_CF) ? 1ull : 0ull; "
+                    f"const uint64_t a = {a} & {mask}; "
+                    f"const uint64_t b = {b} & {mask}; "
+                    f"const uint64_t result = {result}; "
+                    f"uint64_t flags = ArithFlags(c->flags, 1, a, b, result, {size}); "
+                    f"if (a < b || (carry && a == b)) flags |= F_CF; "
+                    f"else flags &= ~(uint64_t)F_CF; c->flags = flags; {write} }}")
 
         if mn in ("add", "sub", "and", "or", "xor", "cmp", "test"):
             a = self.rd(insn, ops[0], size)
@@ -405,10 +655,314 @@ class Emitter:
     def vec(self, insn, start: int, end: int) -> str | None:
         mn = insn.mnemonic
         ops = insn.operands
+        if mn in ("shufps", "shufpd", "pshufd"):
+            if len(ops) != 3:
+                return None
+            di, si = self.xmm_idx(insn, ops[0]), self.xmm_idx(insn, ops[1])
+            if di is None or ops[2].type != CS_OP_IMM:
+                return None
+            if si is not None:
+                source = f"const Vec256 source = v[{si}];"
+            else:
+                address = self.vec_addr(insn, ops[1])
+                if address is None:
+                    return None
+                source = f"Vec256 source; GuestLoadV(source, {address});"
+            imm = ops[2].imm & 0xff
+            if mn == "pshufd":
+                lanes = " ".join(
+                    f"v[{di}].d[{i}] = source.d[{(imm >> (2 * i)) & 3}];"
+                    for i in range(4))
+                return f"{{ {source} {lanes} }}"
+            if mn == "shufps":
+                picks = " ".join(
+                    f"v[{di}].d[{i}] = " +
+                    (f"old.d[{(imm >> (2 * i)) & 3}];" if i < 2 else
+                     f"source.d[{(imm >> (2 * i)) & 3}];")
+                    for i in range(4))
+                return (f"{{ const Vec256 old = v[{di}]; {source} {picks} }}")
+            return (f"{{ const Vec256 old = v[{di}]; {source} "
+                    f"v[{di}].q[0] = old.q[{imm & 1}]; "
+                    f"v[{di}].q[1] = source.q[{(imm >> 1) & 1}]; }}")
+
         if len(ops) != 2:
             return None
         d, s = ops[0], ops[1]
+        size = d.size
         di, si = self.xmm_idx(insn, d), self.xmm_idx(insn, s)
+
+        if mn == "movd":
+            if di is not None:
+                value = self.rd(insn, s, 4)
+                if value is None:
+                    return None
+                return (f"{{ const uint32_t value = static_cast<uint32_t>({value}); "
+                        f"std::memset(&v[{di}], 0, 16); v[{di}].d[0] = value; }}")
+            if si is not None:
+                value = f"v[{si}].d[0]"
+                write = self.wr(insn, d, 4, value)
+                if write:
+                    return write
+                address = self.vec_addr(insn, d)
+                return f"GuestStore<uint32_t>({address}, {value});" if address else None
+            return None
+
+        if mn == "movq":
+            if di is not None:
+                value = f"v[{si}].q[0]" if si is not None else self.rd(insn, s, 8)
+                if value is None:
+                    return None
+                return (f"{{ const uint64_t value = {value}; "
+                        f"std::memset(&v[{di}], 0, 16); v[{di}].q[0] = value; }}")
+            if si is not None:
+                value = f"v[{si}].q[0]"
+                write = self.wr(insn, d, 8, value)
+                if write:
+                    return write
+                address = self.vec_addr(insn, d)
+                return f"GuestStore<uint64_t>({address}, {value});" if address else None
+            return None
+
+        if mn in ("psrlq", "psllq", "psrld", "pslld", "psrad"):
+            if di is None:
+                return None
+            if ops[1].type == CS_OP_IMM:
+                count = f"0x{ops[1].imm & MASK:x}ull"
+            elif si is not None:
+                count = f"v[{si}].q[0]"
+            else:
+                address = self.vec_addr(insn, s)
+                if address is None:
+                    return None
+                count = f"GuestLoad<uint64_t>({address})"
+            lane_bits = 64 if mn.endswith("q") else 32
+            lane_count = 2 if lane_bits == 64 else 4
+            if mn == "psrad":
+                shift = f"(uint64_t)((int32_t)v[{di}].d[k] >> count)"
+                over = f"(v[{di}].d[k] & 0x80000000u) ? 0xffffffffu : 0"
+            else:
+                op = "<<" if mn.startswith("psll") else ">>"
+                shift = f"(v[{di}].{'q' if lane_bits == 64 else 'd'}[k] {op} count)"
+                over = "0"
+            return (f"{{ const uint64_t count = {count}; "
+                    f"for (int k = 0; k < {lane_count}; ++k) "
+                    f"v[{di}].{'q' if lane_bits == 64 else 'd'}[k] = "
+                    f"count >= {lane_bits} ? {over} : {shift}; }}")
+
+        if mn in ("psrldq", "pslldq"):
+            if di is None or ops[1].type != CS_OP_IMM:
+                return None
+            count = ops[1].imm & 0xff
+            source_byte = "i + count" if mn == "psrldq" else "i - count"
+            valid = "i + count < 16" if mn == "psrldq" else "i >= count"
+            return (f"{{ const Vec256 old = v[{di}]; "
+                    f"const unsigned count = {count}; "
+                    f"for (int i = 0; i < 16; ++i) "
+                    f"v[{di}].b[i] = count < 16 && {valid} "
+                    f"? old.b[{source_byte}] : 0; }}")
+
+        if mn in ("cmpltps", "cmpleps"):
+            if di is None:
+                return None
+            if si is not None:
+                source = f"const Vec256 rhs = v[{si}];"
+            else:
+                address = self.vec_addr(insn, s)
+                if address is None:
+                    return None
+                source = f"Vec256 rhs; GuestLoadV(rhs, {address});"
+            compare = "<" if mn == "cmpltps" else "<="
+            return (f"{{ const Vec256 lhs = v[{di}]; {source} "
+                    f"for (int k = 0; k < 4; ++k) "
+                    f"v[{di}].d[k] = lhs.f[k] {compare} rhs.f[k] "
+                    f"? 0xffffffffu : 0; }}")
+
+        if mn == "rsqrtps":
+            if di is None:
+                return None
+            if si is not None:
+                source = f"const Vec256 src = v[{si}];"
+            else:
+                address = self.vec_addr(insn, s)
+                if address is None:
+                    return None
+                source = f"Vec256 src; GuestLoadV(src, {address});"
+            return (f"{{ {source} for (int k = 0; k < 4; ++k) "
+                    f"v[{di}].f[k] = 1.0f / std::sqrt(src.f[k]); }}")
+
+        if mn in ("movlhps", "movhlps"):
+            if di is None or si is None:
+                return None
+            return (f"v[{di}].q[1] = v[{si}].q[0];" if mn == "movlhps"
+                    else f"v[{di}].q[0] = v[{si}].q[1];")
+
+        if mn == "paddq":
+            if di is None:
+                return None
+            if si is not None:
+                return (f"{{ for (int k = 0; k < 2; ++k) "
+                        f"v[{di}].q[k] += v[{si}].q[k]; }}")
+            address = self.vec_addr(insn, s)
+            if address is None:
+                return None
+            return (f"{{ Vec256 rhs; GuestLoadV(rhs, {address}); "
+                    f"for (int k = 0; k < 2; ++k) v[{di}].q[k] += rhs.q[k]; }}")
+
+        if mn in ("punpckldq", "punpckhdq"):
+            if di is None:
+                return None
+            if si is not None:
+                source = f"const Vec256 rhs = v[{si}];"
+            else:
+                address = self.vec_addr(insn, s)
+                if address is None:
+                    return None
+                source = f"Vec256 rhs; GuestLoadV(rhs, {address});"
+            base = 0 if mn == "punpckldq" else 2
+            return (f"{{ const Vec256 lhs = v[{di}]; {source} "
+                    f"v[{di}].d[0] = lhs.d[{base}]; v[{di}].d[1] = rhs.d[{base}]; "
+                    f"v[{di}].d[2] = lhs.d[{base + 1}]; "
+                    f"v[{di}].d[3] = rhs.d[{base + 1}]; }}")
+
+        if mn == "cvtsi2ss":
+            if di is None:
+                return None
+            source = self.rd(insn, s, s.size)
+            if source is None or s.size not in (4, 8):
+                return None
+            signed = f"int{s.size * 8}_t"
+            return (f"v[{di}].f[0] = static_cast<float>("
+                    f"static_cast<{signed}>({source}));")
+
+        if mn == "cvttss2si":
+            if si is not None:
+                source = f"v[{si}].f[0]"
+            else:
+                address = self.vec_addr(insn, s)
+                if address is None:
+                    return None
+                source = f"GuestLoad<float>({address})"
+            if size not in (4, 8):
+                return None
+            signed = f"int{size * 8}_t"
+            lower = "-2147483648.0" if size == 4 else "-9223372036854775808.0"
+            upper = "2147483648.0" if size == 4 else "9223372036854775808.0"
+            invalid = "0x80000000u" if size == 4 else "0x8000000000000000ull"
+            value = (f"(std::isfinite(value) && static_cast<double>(value) >= {lower} "
+                     f"&& static_cast<double>(value) < {upper} "
+                     f"? static_cast<{signed}>(value) : static_cast<{signed}>({invalid}))")
+            return (f"{{ const float value = {source}; "
+                    f"{self.wr(insn, d, size, value)} }}")
+
+        if mn in ("comiss", "ucomiss"):
+            if di is None:
+                return None
+            if si is not None:
+                rhs = f"v[{si}].f[0]"
+            else:
+                a = self.vec_addr(insn, s)
+                if a is None:
+                    return None
+                rhs = f"GuestLoad<float>({a})"
+            return (f"{{ const float lhs = v[{di}].f[0]; const float rhs = {rhs}; "
+                    "c->flags &= ~(uint64_t)F_ARITH; "
+                    "if (std::isunordered(lhs, rhs)) "
+                    "c->flags |= F_CF | F_PF | F_ZF; "
+                    "else if (lhs < rhs) c->flags |= F_CF; "
+                    "else if (lhs == rhs) c->flags |= F_ZF; }")
+
+        if mn in ("andnps", "pandn"):
+            if di is None:
+                return None
+            if si is not None:
+                return (f"{{ for (int k = 0; k < 2; ++k) "
+                        f"v[{di}].q[k] = ~v[{di}].q[k] & v[{si}].q[k]; }}")
+            address = self.vec_addr(insn, s)
+            if address is None:
+                return None
+            return (f"{{ Vec256 source; GuestLoadV(source, {address}); "
+                    f"for (int k = 0; k < 2; ++k) "
+                    f"v[{di}].q[k] = ~v[{di}].q[k] & source.q[k]; }}")
+
+        if mn in ("minps", "maxps"):
+            if di is None:
+                return None
+            if si is not None:
+                source = f"const Vec256 rhs = v[{si}];"
+            else:
+                address = self.vec_addr(insn, s)
+                if address is None:
+                    return None
+                source = f"Vec256 rhs; GuestLoadV(rhs, {address});"
+            compare = "<" if mn == "minps" else ">"
+            return (f"{{ const Vec256 lhs = v[{di}]; {source} "
+                    f"for (int k = 0; k < 4; ++k) "
+                    f"v[{di}].f[k] = lhs.f[k] {compare} rhs.f[k] "
+                    f"? lhs.f[k] : rhs.f[k]; }}")
+
+        if mn in ("unpcklps", "unpckhps"):
+            if di is None:
+                return None
+            if si is not None:
+                source = f"const Vec256 rhs = v[{si}];"
+            else:
+                address = self.vec_addr(insn, s)
+                if address is None:
+                    return None
+                source = f"Vec256 rhs; GuestLoadV(rhs, {address});"
+            base = 0 if mn == "unpcklps" else 2
+            return (f"{{ const Vec256 lhs = v[{di}]; {source} "
+                    f"v[{di}].d[0] = lhs.d[{base}]; v[{di}].d[1] = rhs.d[{base}]; "
+                    f"v[{di}].d[2] = lhs.d[{base + 1}]; "
+                    f"v[{di}].d[3] = rhs.d[{base + 1}]; }}")
+
+        if mn == "cvtdq2ps":
+            if di is None:
+                return None
+            if si is not None:
+                source = f"const Vec256 src = v[{si}];"
+            else:
+                address = self.vec_addr(insn, s)
+                if address is None:
+                    return None
+                source = f"Vec256 src; GuestLoadV(src, {address});"
+            return (f"{{ {source} for (int k = 0; k < 4; ++k) "
+                    f"v[{di}].f[k] = static_cast<float>(src.sd[k]); }}")
+
+        if mn == "cvtps2pd":
+            if di is None:
+                return None
+            if si is not None:
+                source = f"const Vec256 src = v[{si}];"
+            else:
+                address = self.vec_addr(insn, s)
+                if address is None:
+                    return None
+                source = (f"Vec256 src; src.q[0] = GuestLoad<uint64_t>({address});")
+            return (f"{{ {source} v[{di}].fd[0] = static_cast<double>(src.f[0]); "
+                    f"v[{di}].fd[1] = static_cast<double>(src.f[1]); }}")
+
+        if mn == "cvtpd2ps":
+            if di is None:
+                return None
+            if si is not None:
+                source = f"const Vec256 src = v[{si}];"
+            else:
+                address = self.vec_addr(insn, s)
+                if address is None:
+                    return None
+                source = f"Vec256 src; GuestLoadV(src, {address});"
+            return (f"{{ {source} v[{di}].f[0] = static_cast<float>(src.fd[0]); "
+                    f"v[{di}].f[1] = static_cast<float>(src.fd[1]); "
+                    f"v[{di}].d[2] = 0; v[{di}].d[3] = 0; }}")
+
+        if mn == "movmskps":
+            if si is None:
+                return None
+            write = self.wr(insn, d, 4,
+                            f"((v[{si}].d[0] >> 31) | ((v[{si}].d[1] >> 30) & 2) | "
+                            f"((v[{si}].d[2] >> 29) & 4) | ((v[{si}].d[3] >> 28) & 8))")
+            return write
 
         if mn in self.PACKED_MOVES:
             if di is not None and si is not None:
@@ -479,12 +1033,15 @@ class Emitter:
         if not insns:
             return ""
 
+        starts = {insn.address - self.pe.image_base for insn in insns}
+        self._starts = starts
+
         targets: set[int] = set()
         for insn in insns:
             for op in insn.operands:
                 if op.type == CS_OP_IMM:
                     t = (op.imm & MASK) - self.pe.image_base
-                    if rva <= t < end:
+                    if t in starts:
                         targets.add(t)
 
         out = [f'__attribute__((visibility("hidden"))) void f_{rva:x}(CpuContext *c) {{\n',
@@ -514,6 +1071,8 @@ PROLOGUE_TEMPLATE = """/* Generated by tools/recompiler/main.py from the user's 
  * Not to be distributed: this is the game's code.
  */
 #include <cstdint>
+#include <cmath>
+#include <chrono>
 #include "cpu_context.h"
 
 namespace vigil::recomp {
@@ -571,30 +1130,45 @@ def main() -> int:
         order = order[: args.limit]
 
     windows: dict[int, list[str]] = {}
+    emitted: list[int] = []          # only functions that actually produced C
     for rva in order:
         text = em.emit_function(rva, funcs[rva], md)
         if text:
             windows.setdefault(rva // args.window, []).append(text)
+            emitted.append(rva)
 
+    def write_if_changed(path: Path, content: str) -> bool:
+        """Rewriting an identical file would make the whole build recompile."""
+        try:
+            if path.exists() and path.read_text(encoding="utf-8") == content:
+                return False
+        except OSError:
+            pass
+        path.write_text(content, encoding="utf-8")
+        return True
+
+    changed = 0
     for window, chunks in windows.items():
-        (outdir / f"OUT_{window:05x}.c").write_text(
-            prologue(False) + "".join(chunks), encoding="utf-8")
+        if write_if_changed(outdir / f"OUT_{window:05x}.c",
+                            prologue(False) + "".join(chunks)):
+            changed += 1
 
-    # library entry: the table the loader walks, and one slot per function
+    # library entry: the table the loader walks, and one slot per emitted function
     head = [prologue(True)]
-    for rva in order:
+    for rva in emitted:
         head.append(f'void f_{rva:x}(CpuContext *c);\n'
                     f'__attribute__((visibility("hidden"))) RcFn d_{rva:x};\n')
     head.append("\nstatic const RcFunction table[] = {\n")
-    for rva in order:
+    for rva in emitted:
         head.append(f"    {{0x{rva:x}, 0x{funcs[rva] - rva:x}, 0, f_{rva:x}, &d_{rva:x}}},\n")
     head.append("};\n\nextern \"C\" __attribute__((visibility(\"default\")))\n"
                 "const RcFunction *bb_recomp_init(const RcApi *api, size_t *count) {\n"
                 "    rc = api;\n    *count = sizeof(table) / sizeof(table[0]);\n"
                 "    return table;\n}\n")
-    (outdir / "OUT.c").write_text("".join(head), encoding="utf-8")
+    write_if_changed(outdir / "OUT.c", "".join(head))
 
-    print(f"[+] {em.stats['func']} functions -> {len(windows)} files + OUT.c in {outdir}")
+    print(f"[+] {em.stats['func']} functions ({len(emitted)} emitted) -> "
+          f"{len(windows)} files ({changed} rewritten) + OUT.c in {outdir}")
     if em.stats["insn"]:
         pct = 100.0 * em.stats["native"] / em.stats["insn"]
         print(f"[+] {em.stats['native']}/{em.stats['insn']} instructions in C "

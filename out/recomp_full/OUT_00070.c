@@ -30001,10 +30001,10 @@ L_e18622: ;
     r[14] = ({ uint64_t v = GuestLoad<uint64_t>(r[RSP]); r[RSP] += 8; v; });
     { const uint64_t t = GuestLoad<uint64_t>(r[RSP]); r[RSP] += 8; c->rip = t; RC_SAVE(); return; }
     
-    if (Cond(0x2, c->flags)) goto L_e185c7;
+    { c->rip = B + 0xe18640ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* jb 0x140e185c7 */
     { c->rip = B + 0xe18642ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* loope 0x140e18644 */
 L_e18644: ;
-    if (Cond(0x2, c->flags)) goto L_e185cb;
+    { c->rip = B + 0xe18644ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* jb 0x140e185cb */
     { c->rip = B + 0xe18646ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* loope 0x140e18648 */
 L_e18648: ;
     { const uint64_t t = GuestLoad<uint64_t>(r[RSP]); r[RSP] += 57741; c->rip = t; RC_SAVE(); return; }

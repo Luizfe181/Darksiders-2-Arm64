@@ -135789,8 +135789,6 @@ void f_e6ba79(CpuContext *c);
 __attribute__((visibility("hidden"))) RcFn d_e6ba79;
 void f_e6bafd(CpuContext *c);
 __attribute__((visibility("hidden"))) RcFn d_e6bafd;
-void f_e6bb2c(CpuContext *c);
-__attribute__((visibility("hidden"))) RcFn d_e6bb2c;
 void f_e6bba0(CpuContext *c);
 __attribute__((visibility("hidden"))) RcFn d_e6bba0;
 void f_e6bbd0(CpuContext *c);
@@ -148503,8 +148501,6 @@ void f_ff3e74(CpuContext *c);
 __attribute__((visibility("hidden"))) RcFn d_ff3e74;
 void f_ff4c76(CpuContext *c);
 __attribute__((visibility("hidden"))) RcFn d_ff4c76;
-void f_ff4c84(CpuContext *c);
-__attribute__((visibility("hidden"))) RcFn d_ff4c84;
 void f_ff4dd0(CpuContext *c);
 __attribute__((visibility("hidden"))) RcFn d_ff4dd0;
 void f_ff4fe0(CpuContext *c);
@@ -148557,8 +148553,6 @@ void f_ffa7a0(CpuContext *c);
 __attribute__((visibility("hidden"))) RcFn d_ffa7a0;
 void f_ffa85e(CpuContext *c);
 __attribute__((visibility("hidden"))) RcFn d_ffa85e;
-void f_ffb508(CpuContext *c);
-__attribute__((visibility("hidden"))) RcFn d_ffb508;
 void f_ffb5d0(CpuContext *c);
 __attribute__((visibility("hidden"))) RcFn d_ffb5d0;
 void f_ffb800(CpuContext *c);
@@ -149101,8 +149095,6 @@ void f_1019970(CpuContext *c);
 __attribute__((visibility("hidden"))) RcFn d_1019970;
 void f_10199da(CpuContext *c);
 __attribute__((visibility("hidden"))) RcFn d_10199da;
-void f_101bd44(CpuContext *c);
-__attribute__((visibility("hidden"))) RcFn d_101bd44;
 void f_101be00(CpuContext *c);
 __attribute__((visibility("hidden"))) RcFn d_101be00;
 void f_101be30(CpuContext *c);
@@ -263556,7 +263548,6 @@ static const RcFunction table[] = {
     {0xe6ba4f, 0x2a, 0, f_e6ba4f, &d_e6ba4f},
     {0xe6ba79, 0x84, 0, f_e6ba79, &d_e6ba79},
     {0xe6bafd, 0x2f, 0, f_e6bafd, &d_e6bafd},
-    {0xe6bb2c, 0x68, 0, f_e6bb2c, &d_e6bb2c},
     {0xe6bba0, 0x2a, 0, f_e6bba0, &d_e6bba0},
     {0xe6bbd0, 0xb1, 0, f_e6bbd0, &d_e6bbd0},
     {0xe6bc81, 0x60, 0, f_e6bc81, &d_e6bc81},
@@ -269913,7 +269904,6 @@ static const RcFunction table[] = {
     {0xff3e20, 0x54, 0, f_ff3e20, &d_ff3e20},
     {0xff3e74, 0xe02, 0, f_ff3e74, &d_ff3e74},
     {0xff4c76, 0xe, 0, f_ff4c76, &d_ff4c76},
-    {0xff4c84, 0x101, 0, f_ff4c84, &d_ff4c84},
     {0xff4dd0, 0x203, 0, f_ff4dd0, &d_ff4dd0},
     {0xff4fe0, 0x175, 0, f_ff4fe0, &d_ff4fe0},
     {0xff5160, 0x89d, 0, f_ff5160, &d_ff5160},
@@ -269940,7 +269930,6 @@ static const RcFunction table[] = {
     {0xff9cc0, 0xa68, 0, f_ff9cc0, &d_ff9cc0},
     {0xffa7a0, 0xbe, 0, f_ffa7a0, &d_ffa7a0},
     {0xffa85e, 0xcaa, 0, f_ffa85e, &d_ffa85e},
-    {0xffb508, 0x64, 0, f_ffb508, &d_ffb508},
     {0xffb5d0, 0x1eb, 0, f_ffb5d0, &d_ffb5d0},
     {0xffb800, 0x8d, 0, f_ffb800, &d_ffb800},
     {0xffb88d, 0x150, 0, f_ffb88d, &d_ffb88d},
@@ -270212,7 +270201,6 @@ static const RcFunction table[] = {
     {0x10197fa, 0x41, 0, f_10197fa, &d_10197fa},
     {0x1019970, 0x6a, 0, f_1019970, &d_1019970},
     {0x10199da, 0x236a, 0, f_10199da, &d_10199da},
-    {0x101bd44, 0xb4, 0, f_101bd44, &d_101bd44},
     {0x101be00, 0x22, 0, f_101be00, &d_101be00},
     {0x101be30, 0x76, 0, f_101be30, &d_101be30},
     {0x101bea6, 0x1e9a, 0, f_101bea6, &d_101bea6},

@@ -20,3 +20,12 @@ analysis/reports/*
 
 # Ferramentas e Binarios locais
 tools/*.exe
+
+*.exe
+*.o
+out/
+game_original/
+
+# Caminhos locais gerados por build_apk.ps1
+local.properties
+

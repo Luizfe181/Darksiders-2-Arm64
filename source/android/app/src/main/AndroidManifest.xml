@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- minSdk 26: Vulkan 1.1 garantido e arm64-v8a como unica ABI. -->
-    <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="31" />
+    <!-- minSdk 26 e targetSdk 31 vem do build.gradle; declara-los aqui tambem
+         faz o AGP avisar sobre conflito. -->
 
     <!-- Leitura dos assets (media.upak) e dos drivers Vulkan customizados. -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
@@ -26,17 +26,33 @@
         android:hasCode="true"
         android:hardwareAccelerated="true">
 
+        <!-- Tela de configuracao: escolhe a pasta do jogo e o driver Turnip,
+             grava o config.ini e so depois inicia o jogo. -->
         <activity
-            android:name=".Darksiders2Activity"
+            android:name=".SetupActivity"
             android:exported="true"
-            android:launchMode="singleInstance"
-            android:screenOrientation="sensorLandscape"
             android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|uiMode|density"
-            android:theme="@android:style/Theme.NoTitleBar.Fullscreen">
+            android:theme="@android:style/Theme.Material.NoActionBar">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Browser de pastas: devolve um caminho real para o codigo nativo. -->
+        <activity
+            android:name=".FolderPickerActivity"
+            android:exported="false"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|uiMode|density"
+            android:theme="@android:style/Theme.Material.NoActionBar" />
+
+        <!-- O jogo (SDL). Iniciado apenas pela tela de configuracao. -->
+        <activity
+            android:name=".Darksiders2Activity"
+            android:exported="false"
+            android:launchMode="singleInstance"
+            android:screenOrientation="sensorLandscape"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|uiMode|density"
+            android:theme="@android:style/Theme.NoTitleBar.Fullscreen" />
     </application>
 </manifest>

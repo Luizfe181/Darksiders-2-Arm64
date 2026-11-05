@@ -31,7 +31,7 @@ __attribute__((visibility("hidden"))) void f_de0f93(CpuContext *c) {
     r[14] = ({ uint64_t v = GuestLoad<uint64_t>(r[RSP]); r[RSP] += 8; v; });
     r[5] = ({ uint64_t v = GuestLoad<uint64_t>(r[RSP]); r[RSP] += 8; v; });
     { const uint64_t t = GuestLoad<uint64_t>(r[RSP]); r[RSP] += 8; c->rip = t; RC_SAVE(); return; }
-    if (Cond(0xf, c->flags)) goto L_de0fad;
+    { c->rip = B + 0xde0fb0ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* jg 0x140de0fad */
     { c->rip = B + 0xde0fb2ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* fld qword ptr [rax] */
     { c->rip = B + 0xde0fb4ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* movsd dword ptr [rdi], dword ptr [rsi] */
     { c->rip = B + 0xde0fb5ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* sti  */

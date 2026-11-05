@@ -4,6 +4,20 @@ Esta pasta recebe a `libdxvk_d3d11.so` que o `win32::LoadDxvk()` carrega em run 
 O patch em `patches/` é a parte de **WSI** do port: é real, aplica limpo ao 1.10.3
 e está verificado. **O build completo ainda não é possível** — ver "Bloqueios".
 
+## Renderer D3D9 do jogo
+
+A análise estática confirmou que o executável cria um `IDirect3D9` e um
+`IDirect3DDevice9`; este DXVK 1.10.3/D3D11 não atende esse caminho. Para testar o
+backend certo sem copiar fontes para este repositório, o CMake aceita
+`-DD2_DXVK_NATIVE_DIR=C:/LMS_Android/android/app/jni/dxvk`. Essa árvore
+DXVK Native compila como `dxvk_d3d9` para Android ARM64.
+
+**Limite atual:** o alvo compila, mas ainda não está ligado às chamadas COM
+x64 do jogo. A ponte do LEGO Marvel é x86 de 32 bits e não pode ser usada
+diretamente. Até existir uma ponte Win64 que envolva os objetos e traduza os
+métodos D3D9, o jogo continua sem renderer; não se deve reportar o build do
+backend como renderização funcional.
+
 ## O que o patch faz
 
 | Ficheiro | Alteração |

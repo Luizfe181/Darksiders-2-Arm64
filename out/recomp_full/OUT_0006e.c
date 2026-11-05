@@ -14983,7 +14983,7 @@ L_dcaa4f: ;
     { c->rip = B + 0xdcaa7aull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* fadd qword ptr [rax] */
     { c->rip = B + 0xdcaa7cull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* sbb al, 0xa8 */
     { c->rip = B + 0xdcaa7eull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* fadd qword ptr [rax] */
-    if (Cond(0x2, c->flags)) goto L_dcaa2a;
+    { c->rip = B + 0xdcaa80ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* jb 0x140dcaa2a */
     { c->rip = B + 0xdcaa82ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* fadd qword ptr [rax] */
     { c->rip = B + 0xdcaa84ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* int 0xa8 */
     { c->rip = B + 0xdcaa86ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* fadd qword ptr [rax] */

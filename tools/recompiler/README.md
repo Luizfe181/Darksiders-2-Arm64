@@ -123,7 +123,33 @@ Three mechanisms, matching the reference:
    slot — that is how a patched or hooked function is detected and left to the
    translator.
 
-## 5. What must be built next
+## 5. Measured on the real image
+
+`Darksiders2.exe`, 33,637,376 bytes, image base `0x140000000`:
+
+| | |
+|---|---:|
+| Functions from `.pdata` | 97,825 |
+| Functions emitted | 97,821 |
+| Instructions decoded | 4,635,154 |
+| Instructions translated to C | 4,437,427 (**95.7%**) |
+| Output | 150 files, ~2 MB each |
+| Generation time | ~45 s |
+
+The 4.3% left in the interpreter, by count:
+
+| Form | Count | Why it is still there |
+|---|---:|---|
+| `lock xadd` / `lock inc` / `lock dec` / `lock add` | 78,234 | must become `rc_cas` compare-and-exchange loops |
+| `shufps` | 22,709 | needs the immediate-driven lane permutation table |
+| `comiss` / `ucomiss` | 11,746 | raise `#IA` on NaN; goes through the interpreter until the MXCSR model exists |
+| `imul` (3-operand), `movd`, `cvtdq2ps`, `movzx` edge forms | ~14,000 | small, mechanical |
+| `int3` | 2,383 | deliberate: these are the game's own breakpoints |
+
+No `AVX`/`VEX` forms were needed, which confirms the SSE2 assumption in
+`GuestLoadV` / `GuestStoreV`.
+
+## 6. What must be built next
 
 | Piece | Reference | Here |
 |---|---|---|

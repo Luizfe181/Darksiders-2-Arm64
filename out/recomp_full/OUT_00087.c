@@ -25303,12 +25303,12 @@ L_10f7b30: ;
     { const uint64_t t = GuestLoad<uint64_t>(r[RSP]); r[RSP] += 8; c->rip = t; RC_SAVE(); return; }
     
     { c->rip = B + 0x10f7b80ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* lodsd eax, dword ptr [rsi] */
-    if (Cond(0x7, c->flags)) goto L_10f7b92;
+    { c->rip = B + 0x10f7b81ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* ja 0x1410f7b92 */
     { c->flags = ArithFlags(c->flags, 0, (r[4] & 0xffffffffull), (r[2] & 0xffffffffull), ((r[4] & 0xffffffffull) + (r[2] & 0xffffffffull)), 4); r[4] = (uint32_t)(((r[4] & 0xffffffffull) + (r[2] & 0xffffffffull))); }
     if (Cond(0x7, c->flags)) goto L_10f7b96;
     { c->flags = ArithFlags(c->flags, 0, GuestLoad<uint32_t>(r[3] + 0x78ull), (r[4] & 0xffffffffull), (GuestLoad<uint32_t>(r[3] + 0x78ull) + (r[4] & 0xffffffffull)), 4); GuestStore<uint32_t>(r[3] + 0x78ull, (GuestLoad<uint32_t>(r[3] + 0x78ull) + (r[4] & 0xffffffffull))); }
     { c->rip = B + 0x10f7b8aull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* sidt [rax + 0x75010f78] */
-    if (Cond(0xb, c->flags)) goto L_10f7ba2;
+    { c->rip = B + 0x10f7b91ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* jnp 0x1410f7ba2 */
     { c->flags = ArithFlags(c->flags, 0, GuestLoad<uint32_t>(r[5] + 0x7bull), (r[6] & 0xffffffffull), (GuestLoad<uint32_t>(r[5] + 0x7bull) + (r[6] & 0xffffffffull)), 4); GuestStore<uint32_t>(r[5] + 0x7bull, (GuestLoad<uint32_t>(r[5] + 0x7bull) + (r[6] & 0xffffffffull))); }
 L_10f7b96: ;
     { c->rip = B + 0x10f7b96ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* vmfunc  */
@@ -25328,14 +25328,14 @@ L_10f7bb2: ;
     { c->rip = B + 0x10f7bb2ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* smsw word ptr [rbx + 0x7b] */
 L_10f7bb6: ;
     { c->rip = B + 0x10f7bb6ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* mwaitx  */
-    if (Cond(0x7, c->flags)) goto L_10f7bca;
+    { c->rip = B + 0x10f7bb9ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* ja 0x1410f7bca */
     { c->flags = ArithFlags(c->flags, 0, GuestLoad<uint32_t>(r[0]), (r[1] & 0xffffffffull), (GuestLoad<uint32_t>(r[0]) + (r[1] & 0xffffffffull)), 4); GuestStore<uint32_t>(r[0], (GuestLoad<uint32_t>(r[0]) + (r[1] & 0xffffffffull))); }
-    if (Cond(0x8, c->flags)) goto L_10f7bce;
+    { c->rip = B + 0x10f7bbdull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* js 0x1410f7bce */
     { c->flags = ArithFlags(c->flags, 0, GuestLoad<uint32_t>(r[7]), (r[5] & 0xffffffffull), (GuestLoad<uint32_t>(r[7]) + (r[5] & 0xffffffffull)), 4); GuestStore<uint32_t>(r[7], (GuestLoad<uint32_t>(r[7]) + (r[5] & 0xffffffffull))); }
     if (Cond(0x8, c->flags)) goto L_10f7bd2;
     { c->flags = ArithFlags(c->flags, 0, GuestLoad<uint32_t>(r[5] + 0x7bull), (r[6] & 0xffffffffull), (GuestLoad<uint32_t>(r[5] + 0x7bull) + (r[6] & 0xffffffffull)), 4); GuestStore<uint32_t>(r[5] + 0x7bull, (GuestLoad<uint32_t>(r[5] + 0x7bull) + (r[6] & 0xffffffffull))); }
     { c->rip = B + 0x10f7bc6ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* lgdt [rip + 0x22010f78] */
-    if (Cond(0x8, c->flags)) goto L_10f7bde;
+    { c->rip = B + 0x10f7bcdull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* js 0x1410f7bde */
     { c->flags = ArithFlags(c->flags, 0, GuestLoad<uint32_t>(r[5] + 0x7bull), (r[6] & 0xffffffffull), (GuestLoad<uint32_t>(r[5] + 0x7bull) + (r[6] & 0xffffffffull)), 4); GuestStore<uint32_t>(r[5] + 0x7bull, (GuestLoad<uint32_t>(r[5] + 0x7bull) + (r[6] & 0xffffffffull))); }
 L_10f7bd2: ;
     { c->rip = B + 0x10f7bd2ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* lgdt [rsi + 0x78] */

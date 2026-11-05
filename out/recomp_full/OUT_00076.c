@@ -11526,7 +11526,7 @@ L_ec93f4: ;
     r[14] = ({ uint64_t v = GuestLoad<uint64_t>(r[RSP]); r[RSP] += 8; v; });
     { const uint64_t t = GuestLoad<uint64_t>(r[RSP]); r[RSP] += 8; c->rip = t; RC_SAVE(); return; }
     
-    goto L_ec93a8;
+    { c->rip = B + 0xec9414ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* jmp 0x140ec93a8 */
     { c->rip = B + 0xec9416ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* in al, dx */
     { c->flags = ArithFlags(c->flags, 0, (r[2] & 0xffull), ((r[3] >> 8) & 0xffull), ((r[2] & 0xffull) + ((r[3] >> 8) & 0xffull)), 1); r[2] = (r[2] & ~0xffull) | ((((r[2] & 0xffull) + ((r[3] >> 8) & 0xffull))) & 0xffull); }
     { c->rip = B + 0xec9419ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* xchg edx, eax */

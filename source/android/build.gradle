@@ -4,10 +4,7 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:8.1.2'
+        // 8.2.2: as 8.1.x falham no JdkImageTransform (jlink) com JDK 21.
+        classpath 'com.android.tools.build:gradle:8.2.2'
     }
-}
-
-task clean(type: Delete) {
-    delete rootProject.buildDir
 }

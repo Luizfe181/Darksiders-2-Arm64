@@ -26514,7 +26514,7 @@ L_db50ba: ;
     { c->rip = B + 0xdb50c9ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* fild dword ptr [r8] */
     r[6] = ({ uint64_t v = GuestLoad<uint64_t>(r[RSP]); r[RSP] += 8; v; });
     { c->rip = B + 0xdb50cdull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* fild dword ptr [rax] */
-    if (Cond(0xe, c->flags)) goto L_db5120;
+    { c->rip = B + 0xdb50d0ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* jle 0x140db5120 */
     { c->rip = B + 0xdb50d2ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* fild dword ptr [rax] */
     { c->rip = B + 0xdb50d4ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* scasb al, byte ptr [rdi] */
     { c->rip = B + 0xdb50d5ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* fild dword ptr [rax] */

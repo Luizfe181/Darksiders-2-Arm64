@@ -32031,7 +32031,7 @@ L_e38d99: ;
     { c->flags = ArithFlags(c->flags, 0, GuestLoad<uint8_t>(r[5] + (uint64_t)(-0x74)), (r[3] & 0xffull), (GuestLoad<uint8_t>(r[5] + (uint64_t)(-0x74)) + (r[3] & 0xffull)), 1); GuestStore<uint8_t>(r[5] + (uint64_t)(-0x74), (GuestLoad<uint8_t>(r[5] + (uint64_t)(-0x74)) + (r[3] & 0xffull))); }
     { c->rip = B + 0xe38daeull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* jrcxz 0x140e38db0 */
 L_e38db0: ;
-    if (Cond(0x5, c->flags)) goto L_e38d3e;
+    { c->rip = B + 0xe38db0ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* jne 0x140e38d3e */
     { c->rip = B + 0xe38db2ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* jrcxz 0x140e38db4 */
 L_e38db4: ;
     { c->rip = B + 0xe38db4ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* xchg edx, eax */

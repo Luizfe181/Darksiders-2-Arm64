@@ -5,6 +5,10 @@
 // win32_stubs.h for why the stubs are shaped this way.
 #include "win32_stubs.h"
 
+#if defined(D2_HAS_DXVK_D3D9)
+#include <d3d9.h>
+#endif
+
 #include <algorithm>
 #include <atomic>
 #include <cctype>
@@ -16,6 +20,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <cmath>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <unordered_map>
@@ -96,7 +102,7 @@ inline void SetRet32(CpuContext *c, std::int32_t v) {
 // ---------------------------------------------------------------------------
 // Registry
 // ---------------------------------------------------------------------------
-constexpr std::size_t kMaxStubs = 1024;
+constexpr std::size_t kMaxStubs = 4096;
 constexpr std::uint64_t kThunkStride = 0x10;
 constexpr std::uint64_t kModuleBaseStart = 0x00007F01'00000000ull;
 
@@ -106,8 +112,11 @@ std::unordered_map<std::string, std::uint64_t> g_module_base;
 std::unordered_map<std::uint64_t, std::string> g_module_name;
 StubFn g_slot_table[kMaxStubs] = {};   // filled before any guest thread starts
 // Names for tracing: an import is "module/name", a COM method "Interface/name".
-const char *g_slot_owner[kMaxStubs] = {};
-const char *g_slot_name[kMaxStubs] = {};
+std::string g_slot_owner[kMaxStubs];
+std::string g_slot_name[kMaxStubs];
+std::int32_t g_crt_fmode = 0;
+std::int32_t g_crt_commode = 0;
+std::atomic<std::uint64_t> g_unhandled_exception_filter{0};
 // Which thunk is running. Dispatch sets it, so one generic handler can serve
 // every slot; thread-local because guest threads run concurrently.
 thread_local std::uint64_t g_active_thunk = 0;
@@ -124,6 +133,60 @@ std::string Lower(std::string s) {
 }
 std::string Key(const char *module, const char *name) {
     return Lower(module ? module : "") + "!" + (name ? name : "");
+}
+std::string OrdinalKey(const char *module, std::uint16_t ordinal) {
+    return Lower(module ? module : "") + "!#ordinal:" + std::to_string(ordinal);
+}
+bool ParseOrdinalName(const char *name, std::uint16_t &ordinal) {
+    constexpr char kPrefix[] = "Ordinal_";
+    if (name == nullptr || std::strncmp(name, kPrefix, sizeof(kPrefix) - 1) != 0 ||
+        name[sizeof(kPrefix) - 1] == '\0') {
+        return false;
+    }
+    std::uint32_t value = 0;
+    for (const char *p = name + sizeof(kPrefix) - 1; *p != '\0'; ++p) {
+        if (*p < '0' || *p > '9') return false;
+        value = value * 10 + static_cast<std::uint32_t>(*p - '0');
+        if (value > UINT16_MAX) return false;
+    }
+    ordinal = static_cast<std::uint16_t>(value);
+    return true;
+}
+const char *OrdinalExportName(const char *module, std::uint16_t ordinal) {
+    struct OrdinalExport {
+        const char *module;
+        std::uint16_t ordinal;
+        const char *name;
+    };
+    static constexpr OrdinalExport kOrdinalExports[] = {
+        {"xinput1_3.dll", 2, "XInputGetState"},
+        {"xinput1_3.dll", 3, "XInputSetState"},
+        {"xinput1_3.dll", 4, "XInputGetCapabilities"},
+        {"ws2_32.dll", 1, "accept"},
+        {"ws2_32.dll", 2, "bind"},
+        {"ws2_32.dll", 3, "closesocket"},
+        {"ws2_32.dll", 4, "connect"},
+        {"ws2_32.dll", 6, "getsockname"},
+        {"ws2_32.dll", 9, "htons"},
+        {"ws2_32.dll", 10, "ioctlsocket"},
+        {"ws2_32.dll", 13, "listen"},
+        {"ws2_32.dll", 15, "ntohs"},
+        {"ws2_32.dll", 16, "recv"},
+        {"ws2_32.dll", 18, "select"},
+        {"ws2_32.dll", 19, "send"},
+        {"ws2_32.dll", 21, "setsockopt"},
+        {"ws2_32.dll", 57, "gethostname"},
+        {"ws2_32.dll", 111, "WSAGetLastError"},
+        {"ws2_32.dll", 115, "WSAStartup"},
+        {"ws2_32.dll", 151, "__WSAFDIsSet"},
+        {"oleaut32.dll", 2, "SysAllocString"},
+        {"oleaut32.dll", 6, "SysFreeString"},
+    };
+    const std::string mod = Lower(module ? module : "");
+    for (const OrdinalExport &entry : kOrdinalExports) {
+        if (mod == entry.module && ordinal == entry.ordinal) return entry.name;
+    }
+    return nullptr;
 }
 
 std::uint64_t AddStub(const char *module, const char *name, StubFn fn) {
@@ -287,13 +350,8 @@ std::uint64_t Impl_GetModuleHandle(const char *name) {
 
 std::uint64_t Impl_GetProcAddress(std::uint64_t module, const char *name) {
     if (name == nullptr) return 0;
-    // MAKEINTRESOURCE(ordinal): high 16 bits clear. Ordinals are not mapped yet.
-    if ((reinterpret_cast<std::uintptr_t>(name) >> 16) == 0) {
-        Log("[win32] GetProcAddress: ordinal %llu unsupported module=0x%llx",
-            static_cast<unsigned long long>(reinterpret_cast<std::uintptr_t>(name)),
-            static_cast<unsigned long long>(module));
-        return 0;
-    }
+    const std::uintptr_t proc = reinterpret_cast<std::uintptr_t>(name);
+    const bool by_ordinal = (proc >> 16) == 0;
 
     std::string mod;
     {
@@ -302,6 +360,15 @@ std::uint64_t Impl_GetProcAddress(std::uint64_t module, const char *name) {
         mod = (it != g_module_name.end()) ? it->second : std::string();
     }
     if (mod.empty()) return 0;
+
+    if (by_ordinal) {
+        const auto ordinal = static_cast<std::uint16_t>(proc);
+        const std::uint64_t thunk = ResolveImportOrdinal(mod.c_str(), ordinal);
+        if (thunk == 0) {
+            Log("[win32] unresolved ordinal %u in %s", ordinal, mod.c_str());
+        }
+        return thunk;
+    }
 
     const std::uint64_t thunk = ResolveImport(mod.c_str(), name);
     if (thunk == 0) LogMissingImport(mod.c_str(), name);
@@ -420,6 +487,8 @@ void *ThreadMain(void *arg) {
     GuestThread *t = static_cast<GuestThread *>(arg);
     const RcApi *api = GetRecompApi();
     if (api != nullptr && t->start != 0) {
+        recomp::InitializeGuestTeb(
+            t->ctx, reinterpret_cast<std::uint64_t>(t->stack) + t->stack_size);
         api->call(&t->ctx, t->start, kThreadReturnSentinel);
         t->exit_code = static_cast<std::uint32_t>(t->ctx.r[recomp::RAX]);
     }
@@ -1200,6 +1269,10 @@ void Init();
 
 }  // namespace com
 
+#if defined(D2_HAS_DXVK_D3D9)
+void Stub_D3D9Create(CpuContext *c);
+#endif
+
 // ---------------------------------------------------------------------------
 // D3D11 / DXGI -- forwarded to DXVK 1.10.3
 //
@@ -1217,6 +1290,7 @@ void Init();
 std::mutex g_dxvk_mutex;
 void *g_dxvk_lib = nullptr;
 std::atomic<std::uint64_t> g_vk_surface{0};
+std::atomic<std::uint64_t> g_sdl_window{0};
 std::atomic<bool> g_dxvk_missing_logged{false};
 
 using PfnD3D11CreateDevice = std::int32_t (*)(void *, std::uint32_t, void *, std::uint32_t,
@@ -1339,8 +1413,8 @@ namespace com {
 void Stub_ComMethod(CpuContext *c) {
     const std::uint64_t thunk = g_active_thunk;
     const std::size_t slot = (thunk - kThunkBase) / kThunkStride;
-    const char *owner = g_slot_owner[slot] != nullptr ? g_slot_owner[slot] : "COM";
-    const char *name = g_slot_name[slot] != nullptr ? g_slot_name[slot] : "Method";
+    const char *owner = g_slot_owner[slot].empty() ? "COM" : g_slot_owner[slot].c_str();
+    const char *name = g_slot_name[slot].empty() ? "Method" : g_slot_name[slot].c_str();
     const std::uint64_t self = This(c);
 
     Log("[COM TRACE] %s::%s this=0x%llx a0=0x%llx a1=0x%llx a2=0x%llx a3=0x%llx", owner,
@@ -1464,6 +1538,414 @@ void Init() {
 }
 
 }  // namespace com
+
+#if defined(D2_HAS_DXVK_D3D9)
+
+enum D3D9Interface : std::uint32_t { kD3d9 = 1, kD3d9Device = 2, kD3d9Surface = 3 };
+
+struct D3D9Proxy {
+    std::uint64_t *vtable;
+    IUnknown *host;
+    D3D9Interface iface;
+};
+
+struct D3D9ThunkInfo {
+    D3D9Interface iface = {};
+    std::uint16_t method = 0;
+    bool valid = false;
+};
+
+D3D9ThunkInfo g_d3d9_thunks[kMaxStubs];
+std::uint64_t g_d3d9_vtable[17]{};
+std::uint64_t g_d3d9_device_vtable[119]{};
+std::uint64_t g_d3d9_surface_vtable[17]{};
+std::once_flag g_d3d9_once;
+
+std::uint64_t D3DArg0(CpuContext *c) { return c->r[recomp::RDX]; }
+std::uint64_t D3DArg1(CpuContext *c) { return c->r[recomp::R8]; }
+std::uint64_t D3DArg2(CpuContext *c) { return c->r[recomp::R9]; }
+std::uint64_t D3DArg3(CpuContext *c) {
+    return recomp::GuestLoad<std::uint64_t>(c->r[recomp::RSP] + 0x28);
+}
+std::uint64_t D3DArg4(CpuContext *c) {
+    return recomp::GuestLoad<std::uint64_t>(c->r[recomp::RSP] + 0x30);
+}
+std::uint64_t D3DArg5(CpuContext *c) {
+    return recomp::GuestLoad<std::uint64_t>(c->r[recomp::RSP] + 0x38);
+}
+void Stub_D3D9ComMethod(CpuContext *c);
+
+constexpr const char *kD3d9Methods[] = {
+    "QueryInterface", "AddRef", "Release", "RegisterSoftwareDevice", "GetAdapterCount",
+    "GetAdapterIdentifier", "GetAdapterModeCount", "EnumAdapterModes", "GetAdapterDisplayMode",
+    "CheckDeviceType", "CheckDeviceFormat", "CheckDeviceMultiSampleType",
+    "CheckDepthStencilMatch", "CheckDeviceFormatConversion", "GetDeviceCaps",
+    "GetAdapterMonitor", "CreateDevice"};
+
+const char *D3D9DeviceMethodName(std::uint16_t method) {
+    switch (method) {
+        case 0: return "QueryInterface";
+        case 1: return "AddRef";
+        case 2: return "Release";
+        case 7: return "GetDeviceCaps";
+        case 8: return "GetDisplayMode";
+        case 9: return "GetCreationParameters";
+        case 16: return "Reset";
+        case 17: return "Present";
+        case 37: return "SetRenderTarget";
+        case 38: return "GetRenderTarget";
+        case 39: return "SetDepthStencilSurface";
+        case 40: return "GetDepthStencilSurface";
+        case 41: return "BeginScene";
+        case 42: return "EndScene";
+        case 43: return "Clear";
+        case 57: return "SetRenderState";
+        case 58: return "GetRenderState";
+        case 68: return "GetSamplerState";
+        case 69: return "SetSamplerState";
+        case 118: return "SetNPatchMode";
+        default: return "Method";
+    }
+}
+
+std::uint64_t *D3D9Vtable(D3D9Interface iface) {
+    switch (iface) {
+        case kD3d9: return g_d3d9_vtable;
+        case kD3d9Device: return g_d3d9_device_vtable;
+        case kD3d9Surface: return g_d3d9_surface_vtable;
+    }
+    return nullptr;
+}
+
+D3D9Proxy *D3D9Host(std::uint64_t guest, D3D9Interface expected) {
+    auto *proxy = reinterpret_cast<D3D9Proxy *>(guest);
+    if (proxy == nullptr || proxy->vtable != D3D9Vtable(expected) || proxy->host == nullptr) {
+        return nullptr;
+    }
+    return proxy;
+}
+
+std::uint64_t D3D9Wrap(IUnknown *host, D3D9Interface iface) {
+    if (host == nullptr) return 0;
+    auto *proxy = new (std::nothrow) D3D9Proxy{D3D9Vtable(iface), host, iface};
+    if (proxy == nullptr) {
+        host->Release();
+        return 0;
+    }
+    return reinterpret_cast<std::uint64_t>(proxy);
+}
+
+void WriteDisplayMode(std::uint64_t guest, const D3DDISPLAYMODE &mode) {
+    recomp::GuestStore<std::uint32_t>(guest + 0, mode.Width);
+    recomp::GuestStore<std::uint32_t>(guest + 4, mode.Height);
+    recomp::GuestStore<std::uint32_t>(guest + 8, mode.RefreshRate);
+    recomp::GuestStore<std::uint32_t>(guest + 12, mode.Format);
+}
+
+HRESULT D3D9CreateDevice(CpuContext *c, D3D9Proxy *proxy) {
+    D3DPRESENT_PARAMETERS pp{};
+    const std::uint64_t guest_pp = D3DArg4(c);
+    const std::uint64_t guest_device = D3DArg5(c);
+    if (guest_pp == 0 || guest_device == 0) return D3DERR_INVALIDCALL;
+    pp.BackBufferWidth = recomp::GuestLoad<UINT>(guest_pp + 0);
+    pp.BackBufferHeight = recomp::GuestLoad<UINT>(guest_pp + 4);
+    pp.BackBufferFormat = static_cast<D3DFORMAT>(recomp::GuestLoad<UINT>(guest_pp + 8));
+    pp.BackBufferCount = recomp::GuestLoad<UINT>(guest_pp + 12);
+    pp.MultiSampleType =
+        static_cast<D3DMULTISAMPLE_TYPE>(recomp::GuestLoad<UINT>(guest_pp + 16));
+    pp.MultiSampleQuality = recomp::GuestLoad<DWORD>(guest_pp + 20);
+    pp.SwapEffect = static_cast<D3DSWAPEFFECT>(recomp::GuestLoad<UINT>(guest_pp + 24));
+    pp.hDeviceWindow = reinterpret_cast<HWND>(g_sdl_window.load());
+    pp.Windowed = recomp::GuestLoad<BOOL>(guest_pp + 40);
+    pp.EnableAutoDepthStencil = recomp::GuestLoad<BOOL>(guest_pp + 44);
+    pp.AutoDepthStencilFormat = static_cast<D3DFORMAT>(recomp::GuestLoad<UINT>(guest_pp + 48));
+    pp.Flags = recomp::GuestLoad<DWORD>(guest_pp + 52);
+    pp.FullScreen_RefreshRateInHz = recomp::GuestLoad<UINT>(guest_pp + 56);
+    pp.PresentationInterval = recomp::GuestLoad<UINT>(guest_pp + 60);
+
+    IDirect3DDevice9 *device = nullptr;
+    const HWND focus_window = reinterpret_cast<HWND>(g_sdl_window.load());
+    pp.hDeviceWindow = focus_window;
+    const HRESULT hr = reinterpret_cast<IDirect3D9 *>(proxy->host)->CreateDevice(
+        static_cast<UINT>(D3DArg0(c)), static_cast<D3DDEVTYPE>(D3DArg1(c)),
+        focus_window, static_cast<DWORD>(D3DArg3(c)) | D3DCREATE_MULTITHREADED, &pp, &device);
+
+    recomp::GuestStore<UINT>(guest_pp + 0, pp.BackBufferWidth);
+    recomp::GuestStore<UINT>(guest_pp + 4, pp.BackBufferHeight);
+    recomp::GuestStore<UINT>(guest_pp + 8, pp.BackBufferFormat);
+    recomp::GuestStore<UINT>(guest_pp + 12, pp.BackBufferCount);
+    if (SUCCEEDED(hr)) {
+        const std::uint64_t wrapped = D3D9Wrap(device, kD3d9Device);
+        recomp::GuestStore<std::uint64_t>(guest_device, wrapped);
+        if (wrapped == 0) return E_OUTOFMEMORY;
+    } else {
+        recomp::GuestStore<std::uint64_t>(guest_device, 0);
+    }
+    Log("[D3D9] IDirect3D9::CreateDevice %ux%u -> 0x%08x", pp.BackBufferWidth,
+        pp.BackBufferHeight, static_cast<unsigned>(hr));
+    return hr;
+}
+
+void Stub_D3D9Create(CpuContext *c) {
+    std::call_once(g_d3d9_once, [] {
+        for (std::uint16_t i = 0; i < 17; ++i) {
+            const std::uint64_t thunk = com::AllocThunk("IDirect3D9", kD3d9Methods[i],
+                                                        Stub_D3D9ComMethod);
+            const std::size_t slot = (thunk - kThunkBase) / kThunkStride;
+            g_d3d9_vtable[i] = thunk;
+            g_d3d9_thunks[slot] = {kD3d9, i, true};
+        }
+        for (std::uint16_t i = 0; i < 119; ++i) {
+            const char *name = D3D9DeviceMethodName(i);
+            const std::uint64_t thunk = com::AllocThunk("IDirect3DDevice9", name,
+                                                        Stub_D3D9ComMethod);
+            const std::size_t slot = (thunk - kThunkBase) / kThunkStride;
+            g_d3d9_device_vtable[i] = thunk;
+            g_d3d9_thunks[slot] = {kD3d9Device, i, true};
+        }
+        for (std::uint16_t i = 0; i < 17; ++i) {
+            const std::uint64_t thunk = com::AllocThunk("IDirect3DSurface9", "Method",
+                                                        Stub_D3D9ComMethod);
+            const std::size_t slot = (thunk - kThunkBase) / kThunkStride;
+            g_d3d9_surface_vtable[i] = thunk;
+            g_d3d9_thunks[slot] = {kD3d9Surface, i, true};
+        }
+    });
+
+    IDirect3D9 *d3d = Direct3DCreate9(D3D_SDK_VERSION);
+    SetRet(c, D3D9Wrap(d3d, kD3d9));
+    Log("[D3D9] Direct3DCreate9 -> %s", d3d != nullptr ? "IDirect3D9" : "NULL");
+}
+
+void Stub_D3D9ComMethod(CpuContext *c) {
+    const std::size_t slot = (g_active_thunk - kThunkBase) / kThunkStride;
+    if (slot >= kMaxStubs || !g_d3d9_thunks[slot].valid) {
+        SetRet32(c, D3DERR_INVALIDCALL);
+        return;
+    }
+    const D3D9ThunkInfo info = g_d3d9_thunks[slot];
+    auto *proxy = D3D9Host(Arg0(c), info.iface);
+    if (proxy == nullptr) {
+        SetRet32(c, D3DERR_INVALIDCALL);
+        return;
+    }
+    const std::uint16_t method = info.method;
+    if (method == 0) {
+        const std::uint64_t iid_address = D3DArg0(c);
+        const std::uint64_t output_address = D3DArg1(c);
+        if (iid_address == 0 || output_address == 0) {
+            SetRet32(c, E_POINTER);
+            return;
+        }
+        const GUID iid = recomp::GuestLoad<GUID>(iid_address);
+        IUnknown *queried = nullptr;
+        const HRESULT hr = proxy->host->QueryInterface(iid, reinterpret_cast<void **>(&queried));
+        if (FAILED(hr)) {
+            recomp::GuestStore<std::uint64_t>(output_address, 0);
+            SetRet32(c, hr);
+            return;
+        }
+        D3D9Interface iface = info.iface;
+        if (iid == IID_IDirect3D9) iface = kD3d9;
+        else if (iid == IID_IDirect3DDevice9) iface = kD3d9Device;
+        else if (iid == IID_IDirect3DSurface9) iface = kD3d9Surface;
+        else if (iid != IID_IUnknown) {
+            queried->Release();
+            recomp::GuestStore<std::uint64_t>(output_address, 0);
+            SetRet32(c, E_NOINTERFACE);
+            return;
+        }
+        const std::uint64_t wrapped = D3D9Wrap(queried, iface);
+        recomp::GuestStore<std::uint64_t>(output_address, wrapped);
+        SetRet32(c, wrapped != 0 ? hr : E_OUTOFMEMORY);
+        return;
+    }
+    if (method == 1) {
+        SetRet(c, proxy->host->AddRef());
+        return;
+    }
+    if (method == 2) {
+        const ULONG refs = proxy->host->Release();
+        if (refs == 0) delete proxy;
+        SetRet(c, refs);
+        return;
+    }
+
+    HRESULT hr = D3DERR_INVALIDCALL;
+    if (info.iface == kD3d9) {
+        auto *d3d = reinterpret_cast<IDirect3D9 *>(proxy->host);
+        switch (method) {
+            case 4: SetRet(c, d3d->GetAdapterCount()); return;
+            case 5:
+                hr = d3d->GetAdapterIdentifier(static_cast<UINT>(D3DArg0(c)),
+                    static_cast<DWORD>(D3DArg1(c)),
+                    reinterpret_cast<D3DADAPTER_IDENTIFIER9 *>(D3DArg2(c)));
+                break;
+            case 6: SetRet(c, d3d->GetAdapterModeCount(static_cast<UINT>(D3DArg0(c)),
+                static_cast<D3DFORMAT>(D3DArg1(c)))); return;
+            case 7:
+                hr = d3d->EnumAdapterModes(static_cast<UINT>(D3DArg0(c)),
+                    static_cast<D3DFORMAT>(D3DArg1(c)), static_cast<UINT>(D3DArg2(c)),
+                    reinterpret_cast<D3DDISPLAYMODE *>(D3DArg3(c)));
+                break;
+            case 8: {
+                D3DDISPLAYMODE mode{};
+                hr = d3d->GetAdapterDisplayMode(static_cast<UINT>(D3DArg0(c)), &mode);
+                if (SUCCEEDED(hr)) WriteDisplayMode(D3DArg1(c), mode);
+                break;
+            }
+            case 9:
+                hr = d3d->CheckDeviceType(static_cast<UINT>(D3DArg0(c)),
+                    static_cast<D3DDEVTYPE>(D3DArg1(c)), static_cast<D3DFORMAT>(D3DArg2(c)),
+                    static_cast<D3DFORMAT>(D3DArg3(c)), static_cast<BOOL>(D3DArg4(c)));
+                break;
+            case 10:
+                hr = d3d->CheckDeviceFormat(static_cast<UINT>(D3DArg0(c)),
+                    static_cast<D3DDEVTYPE>(D3DArg1(c)), static_cast<D3DFORMAT>(D3DArg2(c)),
+                    static_cast<DWORD>(D3DArg3(c)), static_cast<D3DRESOURCETYPE>(D3DArg4(c)),
+                    static_cast<D3DFORMAT>(D3DArg5(c)));
+                break;
+            case 14:
+                hr = d3d->GetDeviceCaps(static_cast<UINT>(D3DArg0(c)),
+                    static_cast<D3DDEVTYPE>(D3DArg1(c)),
+                    reinterpret_cast<D3DCAPS9 *>(D3DArg2(c)));
+                break;
+            case 16: hr = D3D9CreateDevice(c, proxy); break;
+        }
+    } else if (info.iface == kD3d9Device) {
+        auto *device = reinterpret_cast<IDirect3DDevice9 *>(proxy->host);
+        switch (method) {
+            case 7:
+                hr = device->GetDeviceCaps(reinterpret_cast<D3DCAPS9 *>(D3DArg0(c)));
+                break;
+            case 8: {
+                D3DDISPLAYMODE mode{};
+                hr = device->GetDisplayMode(static_cast<UINT>(D3DArg0(c)), &mode);
+                if (SUCCEEDED(hr)) WriteDisplayMode(D3DArg1(c), mode);
+                break;
+            }
+            case 9: {
+                D3DDEVICE_CREATION_PARAMETERS p{};
+                hr = device->GetCreationParameters(&p);
+                if (SUCCEEDED(hr)) {
+                    recomp::GuestStore<UINT>(D3DArg0(c) + 0, p.AdapterOrdinal);
+                    recomp::GuestStore<D3DDEVTYPE>(D3DArg0(c) + 4, p.DeviceType);
+                    recomp::GuestStore<std::uint64_t>(D3DArg0(c) + 8, g_sdl_window.load());
+                    recomp::GuestStore<DWORD>(D3DArg0(c) + 16, p.BehaviorFlags);
+                }
+                break;
+            }
+            case 16: {
+                const std::uint64_t guest_pp = D3DArg0(c);
+                D3DPRESENT_PARAMETERS pp{};
+                pp.BackBufferWidth = recomp::GuestLoad<UINT>(guest_pp + 0);
+                pp.BackBufferHeight = recomp::GuestLoad<UINT>(guest_pp + 4);
+                pp.BackBufferFormat = static_cast<D3DFORMAT>(recomp::GuestLoad<UINT>(guest_pp + 8));
+                pp.BackBufferCount = recomp::GuestLoad<UINT>(guest_pp + 12);
+                pp.MultiSampleType = static_cast<D3DMULTISAMPLE_TYPE>(recomp::GuestLoad<UINT>(guest_pp + 16));
+                pp.MultiSampleQuality = recomp::GuestLoad<DWORD>(guest_pp + 20);
+                pp.SwapEffect = static_cast<D3DSWAPEFFECT>(recomp::GuestLoad<UINT>(guest_pp + 24));
+                pp.hDeviceWindow = reinterpret_cast<HWND>(g_sdl_window.load());
+                pp.Windowed = recomp::GuestLoad<BOOL>(guest_pp + 40);
+                pp.EnableAutoDepthStencil = recomp::GuestLoad<BOOL>(guest_pp + 44);
+                pp.AutoDepthStencilFormat = static_cast<D3DFORMAT>(recomp::GuestLoad<UINT>(guest_pp + 48));
+                pp.Flags = recomp::GuestLoad<DWORD>(guest_pp + 52);
+                pp.FullScreen_RefreshRateInHz = recomp::GuestLoad<UINT>(guest_pp + 56);
+                pp.PresentationInterval = recomp::GuestLoad<UINT>(guest_pp + 60);
+                hr = device->Reset(&pp);
+                recomp::GuestStore<UINT>(guest_pp + 0, pp.BackBufferWidth);
+                recomp::GuestStore<UINT>(guest_pp + 4, pp.BackBufferHeight);
+                recomp::GuestStore<UINT>(guest_pp + 8, pp.BackBufferFormat);
+                recomp::GuestStore<UINT>(guest_pp + 12, pp.BackBufferCount);
+                break;
+            }
+            case 17:
+                hr = device->Present(reinterpret_cast<const RECT *>(D3DArg0(c)),
+                    reinterpret_cast<const RECT *>(D3DArg1(c)),
+                    reinterpret_cast<HWND>(D3DArg2(c)),
+                    reinterpret_cast<const RGNDATA *>(D3DArg3(c)));
+                break;
+            case 37:
+                if (auto *surface = D3D9Host(D3DArg1(c), kD3d9Surface)) {
+                    hr = device->SetRenderTarget(static_cast<DWORD>(D3DArg0(c)),
+                        reinterpret_cast<IDirect3DSurface9 *>(surface->host));
+                } else if (D3DArg1(c) == 0) {
+                    hr = device->SetRenderTarget(static_cast<DWORD>(D3DArg0(c)), nullptr);
+                }
+                break;
+            case 38: {
+                if (D3DArg1(c) == 0) {
+                    hr = E_POINTER;
+                    break;
+                }
+                IDirect3DSurface9 *surface = nullptr;
+                hr = device->GetRenderTarget(static_cast<DWORD>(D3DArg0(c)), &surface);
+                const std::uint64_t wrapped =
+                    SUCCEEDED(hr) ? D3D9Wrap(surface, kD3d9Surface) : 0;
+                recomp::GuestStore<std::uint64_t>(D3DArg1(c), wrapped);
+                if (SUCCEEDED(hr) && wrapped == 0) hr = E_OUTOFMEMORY;
+                break;
+            }
+            case 39: {
+                const std::uint64_t guest_surface = D3DArg0(c);
+                if (guest_surface == 0) {
+                    hr = device->SetDepthStencilSurface(nullptr);
+                } else if (auto *surface = D3D9Host(guest_surface, kD3d9Surface)) {
+                    hr = device->SetDepthStencilSurface(
+                        reinterpret_cast<IDirect3DSurface9 *>(surface->host));
+                }
+                break;
+            }
+            case 40: {
+                if (D3DArg0(c) == 0) {
+                    hr = E_POINTER;
+                    break;
+                }
+                IDirect3DSurface9 *surface = nullptr;
+                hr = device->GetDepthStencilSurface(&surface);
+                const std::uint64_t wrapped =
+                    SUCCEEDED(hr) ? D3D9Wrap(surface, kD3d9Surface) : 0;
+                recomp::GuestStore<std::uint64_t>(D3DArg0(c), wrapped);
+                if (SUCCEEDED(hr) && wrapped == 0) hr = E_OUTOFMEMORY;
+                break;
+            }
+            case 41: hr = device->BeginScene(); break;
+            case 42: hr = device->EndScene(); break;
+            case 43:
+                hr = device->Clear(static_cast<DWORD>(D3DArg0(c)),
+                    reinterpret_cast<const D3DRECT *>(D3DArg1(c)),
+                    static_cast<DWORD>(D3DArg2(c)), static_cast<D3DCOLOR>(D3DArg3(c)),
+                    static_cast<float>(D3DArg4(c)), static_cast<DWORD>(D3DArg5(c)));
+                break;
+            case 57:
+                hr = device->SetRenderState(static_cast<D3DRENDERSTATETYPE>(D3DArg0(c)),
+                    static_cast<DWORD>(D3DArg1(c)));
+                break;
+            case 58: {
+                DWORD value = 0;
+                hr = device->GetRenderState(static_cast<D3DRENDERSTATETYPE>(D3DArg0(c)), &value);
+                if (SUCCEEDED(hr)) recomp::GuestStore<DWORD>(D3DArg1(c), value);
+                break;
+            }
+            case 68: {
+                DWORD value = 0;
+                hr = device->GetSamplerState(static_cast<DWORD>(D3DArg0(c)),
+                    static_cast<D3DSAMPLERSTATETYPE>(D3DArg1(c)), &value);
+                if (SUCCEEDED(hr)) recomp::GuestStore<DWORD>(D3DArg2(c), value);
+                break;
+            }
+            case 69:
+                hr = device->SetSamplerState(static_cast<DWORD>(D3DArg0(c)),
+                    static_cast<D3DSAMPLERSTATETYPE>(D3DArg1(c)),
+                    static_cast<DWORD>(D3DArg2(c)));
+                break;
+            case 118: device->SetNPatchMode(c->v[1].f[0]); SetRet(c, 0); return;
+        }
+    }
+
+    SetRet32(c, static_cast<std::int32_t>(hr));
+}
+#endif
 
 // ---------------------------------------------------------------------------
 // Critical sections (recursive, like Windows). Keyed by the guest's address so
@@ -1773,6 +2255,649 @@ void Stub_CreateDXGIFactory(CpuContext *c) {
     SetRet32(c, Impl_CreateDXGIFactory(Arg0(c), Arg1(c)));
 }
 
+void Stub_OrdinalSuccess(CpuContext *c) {
+    const std::uint64_t index = (g_active_thunk - kThunkBase) / kThunkStride;
+    const char *name = index < kMaxStubs ? g_slot_name[index].c_str() : "";
+    if (std::strcmp(name, "XInputGetState") == 0 && Arg1(c) != 0) {
+        std::memset(reinterpret_cast<void *>(Arg1(c)), 0, 12);
+    } else if (std::strcmp(name, "XInputGetCapabilities") == 0 && Arg2(c) != 0) {
+        std::memset(reinterpret_cast<void *>(Arg2(c)), 0, 20);
+    } else if (std::strcmp(name, "WSAStartup") == 0 && Arg1(c) != 0) {
+        std::memset(reinterpret_cast<void *>(Arg1(c)), 0, 408);
+        recomp::GuestStore<std::uint16_t>(Arg1(c), 0x0202);
+        recomp::GuestStore<std::uint16_t>(Arg1(c) + sizeof(std::uint16_t), 0x0202);
+    } else if (std::strcmp(name, "gethostname") == 0 && Arg0(c) != 0 && Arg1(c) != 0) {
+        constexpr char kHostname[] = "android";
+        const std::size_t capacity = static_cast<std::size_t>(Arg1(c));
+        const std::size_t count = std::min(capacity, sizeof(kHostname));
+        std::memcpy(reinterpret_cast<void *>(Arg0(c)), kHostname, count);
+        if (count < capacity) {
+            std::memset(reinterpret_cast<void *>(Arg0(c) + count), 0, capacity - count);
+        } else {
+            reinterpret_cast<char *>(Arg0(c))[capacity - 1] = '\0';
+        }
+    }
+    SetRet32(c, 0);
+}
+
+void Stub_Htons(CpuContext *c) {
+    const std::uint16_t value = static_cast<std::uint16_t>(Arg0(c));
+    SetRet(c, static_cast<std::uint16_t>((value << 8) | (value >> 8)));
+}
+
+void Stub_Ntohs(CpuContext *c) { Stub_Htons(c); }
+
+thread_local std::uint32_t g_wsa_last_error = 0;
+void Stub_WSAGetLastError(CpuContext *c) { SetRet(c, g_wsa_last_error); }
+
+void Stub_SysAllocString(CpuContext *c) {
+    const auto *source = reinterpret_cast<const char16_t *>(Arg0(c));
+    if (source == nullptr) {
+        SetRet(c, 0);
+        return;
+    }
+    std::size_t length = 0;
+    while (length < (1u << 20) && source[length] != u'\0') ++length;
+    if (length == (1u << 20) ||
+        length > (SIZE_MAX - sizeof(std::uint32_t)) / sizeof(char16_t) - 1) {
+        SetRet(c, 0);
+        return;
+    }
+    const std::size_t byte_length = length * sizeof(char16_t);
+    auto *allocation = static_cast<std::uint8_t *>(
+        std::malloc(sizeof(std::uint32_t) + byte_length + sizeof(char16_t)));
+    if (allocation == nullptr) {
+        SetRet(c, 0);
+        return;
+    }
+    const auto byte_length_32 = static_cast<std::uint32_t>(byte_length);
+    std::memcpy(allocation, &byte_length_32, sizeof(byte_length_32));
+    auto *string = reinterpret_cast<char16_t *>(allocation + sizeof(byte_length_32));
+    std::memcpy(string, source, byte_length);
+    string[length] = u'\0';
+    SetRet(c, reinterpret_cast<std::uint64_t>(string));
+}
+
+void Stub_SysFreeString(CpuContext *c) {
+    const std::uint64_t string = Arg0(c);
+    if (string != 0) {
+        std::free(reinterpret_cast<void *>(string - sizeof(std::uint32_t)));
+    }
+    SetRet(c, 0);
+}
+
+// ---------------------------------------------------------------------------
+// CRT Bootstrap & Process/Thread Info
+// ---------------------------------------------------------------------------
+void Stub_GetSystemTimeAsFileTime(CpuContext *c) {
+    auto *out = reinterpret_cast<std::uint64_t *>(Arg0(c));
+    if (out) {
+        timespec ts{};
+        clock_gettime(CLOCK_REALTIME, &ts);
+        std::uint64_t ft = (static_cast<std::uint64_t>(ts.tv_sec) * 10000000ull) +
+                           (ts.tv_nsec / 100) + 116444736000000000ull;
+        recomp::GuestStore<std::uint64_t>(Arg0(c), ft);
+    }
+    SetRet(c, 0);
+}
+
+void Stub_GetCurrentProcessId(CpuContext *c) {
+    SetRet(c, static_cast<std::uint32_t>(getpid()));
+}
+
+void Stub_GetCurrentProcess(CpuContext *c) {
+    SetRet(c, ~0ull);
+}
+
+void Stub_GetCurrentThread(CpuContext *c) {
+    SetRet(c, static_cast<std::uint64_t>(static_cast<std::int64_t>(-2)));
+}
+
+void Stub_IsDebuggerPresent(CpuContext *c) {
+    SetRet(c, 0);
+}
+
+void Stub_IsProcessorFeaturePresent(CpuContext *c) {
+    std::uint32_t f = static_cast<std::uint32_t>(Arg0(c));
+    if (f == 3 || f == 6 || f == 8 || f == 10 || f == 13 || f == 14) {
+        SetRet(c, 1);
+    } else {
+        SetRet(c, 0);
+    }
+}
+
+void Stub_EncodePointer(CpuContext *c) { SetRet(c, Arg0(c)); }
+void Stub_DecodePointer(CpuContext *c) { SetRet(c, Arg0(c)); }
+
+void Stub_InitializeCriticalSectionAndSpinCount(CpuContext *c) {
+    CritFor(Arg0(c), true);
+    SetRet(c, 1);
+}
+
+void Stub_memset(CpuContext *c) {
+    const std::uint64_t destination = Arg0(c);
+    const std::size_t size = static_cast<std::size_t>(Arg2(c));
+    if (destination != 0 && size != 0) {
+        std::memset(reinterpret_cast<void *>(destination),
+                    static_cast<int>(Arg1(c)), size);
+    }
+    SetRet(c, destination);
+}
+
+void Stub_QueryPerformanceFrequency(CpuContext *c) {
+    if (Arg0(c) != 0) {
+        recomp::GuestStore<std::uint64_t>(Arg0(c), 1000000000ull);
+    }
+    SetRet(c, 1);
+}
+
+thread_local std::uint32_t g_last_error = 0;
+void Stub_GetLastError(CpuContext *c) { SetRet(c, g_last_error); }
+void Stub_SetLastError(CpuContext *c) {
+    g_last_error = static_cast<std::uint32_t>(Arg0(c));
+    SetRet(c, 0);
+}
+void Stub_SetErrorMode(CpuContext *c) { SetRet(c, 0); }
+
+void Stub_GetSystemInfo(CpuContext *c) {
+    auto *si = reinterpret_cast<std::uint8_t *>(Arg0(c));
+    if (si) {
+        std::memset(si, 0, 48);
+        *reinterpret_cast<std::uint16_t *>(si + 0) = 9;
+        *reinterpret_cast<std::uint32_t *>(si + 4) = 0x1000;
+        *reinterpret_cast<std::uint64_t *>(si + 8) = 0x10000;
+        *reinterpret_cast<std::uint64_t *>(si + 16) = 0x7FFFFFFEFFFFull;
+        long cores = sysconf(_SC_NPROCESSORS_ONLN);
+        if (cores <= 0) cores = 8;
+        *reinterpret_cast<std::uint64_t *>(si + 24) = (1ull << cores) - 1ull;
+        *reinterpret_cast<std::uint32_t *>(si + 32) = static_cast<std::uint32_t>(cores);
+        *reinterpret_cast<std::uint32_t *>(si + 36) = 0x10000;
+    }
+    SetRet(c, 0);
+}
+
+void Stub_GetModuleFileNameA(CpuContext *c) {
+    char *buf = reinterpret_cast<char *>(Arg1(c));
+    std::uint32_t sz = static_cast<std::uint32_t>(Arg2(c));
+    if (buf && sz > 0) {
+        std::string root = GetDataRoot();
+        std::string p = root.empty() ? "Darksiders2.exe" : (root + "/Darksiders2.exe");
+        std::strncpy(buf, p.c_str(), sz);
+        buf[sz - 1] = '\0';
+        SetRet(c, std::strlen(buf));
+    } else {
+        SetRet(c, 0);
+    }
+}
+
+void Stub_GetModuleFileNameW(CpuContext *c) {
+    auto *buf = reinterpret_cast<std::uint16_t *>(Arg1(c));
+    std::uint32_t sz = static_cast<std::uint32_t>(Arg2(c));
+    if (buf && sz > 0) {
+        std::string root = GetDataRoot();
+        std::string p = root.empty() ? "Darksiders2.exe" : (root + "/Darksiders2.exe");
+        std::size_t len = std::min<std::size_t>(p.size(), sz - 1);
+        for (std::size_t i = 0; i < len; ++i) buf[i] = static_cast<std::uint16_t>(p[i]);
+        buf[len] = 0;
+        SetRet(c, len);
+    } else {
+        SetRet(c, 0);
+    }
+}
+
+void Stub_GetModuleHandleExA(CpuContext *c) {
+    auto *out = reinterpret_cast<std::uint64_t *>(Arg2(c));
+    if (out) *out = Impl_GetModuleHandle(reinterpret_cast<const char *>(Arg1(c)));
+    SetRet(c, 1);
+}
+
+void Stub_GetModuleHandleExW(CpuContext *c) {
+    auto *out = reinterpret_cast<std::uint64_t *>(Arg2(c));
+    if (out) *out = Impl_GetModuleHandle(nullptr);
+    SetRet(c, 1);
+}
+
+void Stub_ExitProcess(CpuContext *c) {
+    Log("[win32] ExitProcess called: code %u", static_cast<unsigned>(Arg0(c)));
+    exit(static_cast<int>(Arg0(c)));
+}
+
+void Stub_RaiseException(CpuContext *c) {
+    Log("[win32] RaiseException: code 0x%x flags 0x%x",
+        static_cast<unsigned>(Arg0(c)), static_cast<unsigned>(Arg1(c)));
+    SetRet(c, 0);
+}
+
+void Stub_VirtualQuery(CpuContext *c) {
+    auto *mbi = reinterpret_cast<std::uint8_t *>(Arg1(c));
+    if (mbi && Arg2(c) >= 48) {
+        std::memset(mbi, 0, 48);
+        std::uint64_t addr = Arg0(c) & ~0xFFFull;
+        *reinterpret_cast<std::uint64_t *>(mbi + 0) = addr;
+        *reinterpret_cast<std::uint64_t *>(mbi + 8) = addr;
+        *reinterpret_cast<std::uint32_t *>(mbi + 16) = PAGE_EXECUTE_READWRITE;
+        *reinterpret_cast<std::uint64_t *>(mbi + 24) = 0x100000ull;
+        *reinterpret_cast<std::uint32_t *>(mbi + 32) = MEM_COMMIT;
+        *reinterpret_cast<std::uint32_t *>(mbi + 36) = PAGE_READWRITE;
+        *reinterpret_cast<std::uint32_t *>(mbi + 40) = 0x20000u; // MEM_PRIVATE
+        SetRet(c, 48);
+    } else {
+        SetRet(c, 0);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Synchronization: Events, Mutexes, Semaphores
+// ---------------------------------------------------------------------------
+struct WinSyncObject {
+    enum Kind { kEvent, kMutex, kSemaphore } kind;
+    bool manual_reset = false;
+    std::atomic<bool> signaled{false};
+    std::atomic<std::int32_t> count{0};
+    std::mutex mtx;
+    std::condition_variable cv;
+};
+
+std::mutex g_sync_mutex;
+std::unordered_map<std::uint64_t, std::shared_ptr<WinSyncObject>> g_sync_objs;
+std::uint64_t g_next_sync_handle = 0x500000ull;
+
+std::uint64_t CreateSync(WinSyncObject::Kind kind, bool manual, bool init_signaled, int init_count) {
+    auto obj = std::make_shared<WinSyncObject>();
+    obj->kind = kind;
+    obj->manual_reset = manual;
+    obj->signaled = init_signaled;
+    obj->count = init_count;
+    std::lock_guard<std::mutex> lock(g_sync_mutex);
+    std::uint64_t h = g_next_sync_handle++;
+    g_sync_objs[h] = obj;
+    RegisterHandle(h, HandleKind::kThread);
+    return h;
+}
+
+void Stub_CreateEventA(CpuContext *c) {
+    bool manual = Arg1(c) != 0;
+    bool init = Arg2(c) != 0;
+    SetRet(c, CreateSync(WinSyncObject::kEvent, manual, init, 0));
+}
+
+void Stub_CreateEventW(CpuContext *c) {
+    bool manual = Arg1(c) != 0;
+    bool init = Arg2(c) != 0;
+    SetRet(c, CreateSync(WinSyncObject::kEvent, manual, init, 0));
+}
+
+void Stub_SetEvent(CpuContext *c) {
+    std::shared_ptr<WinSyncObject> obj;
+    {
+        std::lock_guard<std::mutex> lock(g_sync_mutex);
+        auto it = g_sync_objs.find(Arg0(c));
+        if (it != g_sync_objs.end()) obj = it->second;
+    }
+    if (obj) {
+        std::lock_guard<std::mutex> lock(obj->mtx);
+        obj->signaled = true;
+        obj->cv.notify_all();
+    }
+    SetRet(c, 1);
+}
+
+void Stub_ResetEvent(CpuContext *c) {
+    std::shared_ptr<WinSyncObject> obj;
+    {
+        std::lock_guard<std::mutex> lock(g_sync_mutex);
+        auto it = g_sync_objs.find(Arg0(c));
+        if (it != g_sync_objs.end()) obj = it->second;
+    }
+    if (obj) {
+        std::lock_guard<std::mutex> lock(obj->mtx);
+        obj->signaled = false;
+    }
+    SetRet(c, 1);
+}
+
+void Stub_CreateMutexA(CpuContext *c) {
+    bool owner = Arg1(c) != 0;
+    SetRet(c, CreateSync(WinSyncObject::kMutex, false, !owner, 0));
+}
+
+void Stub_ReleaseMutex(CpuContext *c) {
+    std::shared_ptr<WinSyncObject> obj;
+    {
+        std::lock_guard<std::mutex> lock(g_sync_mutex);
+        auto it = g_sync_objs.find(Arg0(c));
+        if (it != g_sync_objs.end()) obj = it->second;
+    }
+    if (obj) {
+        std::lock_guard<std::mutex> lock(obj->mtx);
+        obj->signaled = true;
+        obj->cv.notify_one();
+    }
+    SetRet(c, 1);
+}
+
+void Stub_CreateSemaphoreA(CpuContext *c) {
+    int init_count = static_cast<int>(Arg1(c));
+    SetRet(c, CreateSync(WinSyncObject::kSemaphore, false, init_count > 0, init_count));
+}
+
+void Stub_CreateSemaphoreW(CpuContext *c) {
+    int init_count = static_cast<int>(Arg1(c));
+    SetRet(c, CreateSync(WinSyncObject::kSemaphore, false, init_count > 0, init_count));
+}
+
+void Stub_ReleaseSemaphore(CpuContext *c) {
+    std::shared_ptr<WinSyncObject> obj;
+    {
+        std::lock_guard<std::mutex> lock(g_sync_mutex);
+        auto it = g_sync_objs.find(Arg0(c));
+        if (it != g_sync_objs.end()) obj = it->second;
+    }
+    if (obj) {
+        int release = static_cast<int>(Arg1(c));
+        if (release <= 0) release = 1;
+        std::lock_guard<std::mutex> lock(obj->mtx);
+        obj->count += release;
+        obj->signaled = true;
+        obj->cv.notify_all();
+    }
+    SetRet(c, 1);
+}
+
+void Stub_WaitForMultipleObjectsEx(CpuContext *c) {
+    SetRet(c, WAIT_OBJECT_0);
+}
+
+// ---------------------------------------------------------------------------
+// Thread Management & Strings
+// ---------------------------------------------------------------------------
+void Stub_ResumeThread(CpuContext *c) { SetRet(c, 1); }
+void Stub_SuspendThread(CpuContext *c) { SetRet(c, 0); }
+void Stub_SetThreadPriority(CpuContext *c) { SetRet(c, 1); }
+void Stub_GetThreadPriority(CpuContext *c) { SetRet(c, 0); }
+void Stub_SetThreadAffinityMask(CpuContext *c) { SetRet(c, 1); }
+void Stub_GetExitCodeThread(CpuContext *c) {
+    if (Arg1(c)) *reinterpret_cast<std::uint32_t *>(Arg1(c)) = 0;
+    SetRet(c, 1);
+}
+void Stub_OutputDebugStringW(CpuContext *c) {
+    const auto *w = reinterpret_cast<const std::uint16_t *>(Arg0(c));
+    if (w) {
+        std::string s = Utf16ToUtf8(w);
+        Log("[guest] %s", s.c_str());
+    }
+    SetRet(c, 0);
+}
+
+void Stub_MultiByteToWideChar(CpuContext *c) {
+    const char *src = reinterpret_cast<const char *>(Arg2(c));
+    int srclen = static_cast<int>(Arg3(c));
+    auto *dst = reinterpret_cast<std::uint16_t *>(Arg4(c));
+    int dstlen = static_cast<int>(Arg5(c));
+    if (srclen < 0 && src) srclen = static_cast<int>(std::strlen(src)) + 1;
+    if (dstlen == 0) {
+        SetRet(c, srclen > 0 ? srclen : 0);
+        return;
+    }
+    if (src && dst) {
+        int n = std::min(srclen, dstlen);
+        for (int i = 0; i < n; ++i) dst[i] = static_cast<std::uint8_t>(src[i]);
+        SetRet(c, n);
+    } else {
+        SetRet(c, 0);
+    }
+}
+
+void Stub_WideCharToMultiByte(CpuContext *c) {
+    const auto *src = reinterpret_cast<const std::uint16_t *>(Arg2(c));
+    int srclen = static_cast<int>(Arg3(c));
+    char *dst = reinterpret_cast<char *>(Arg4(c));
+    int dstlen = static_cast<int>(Arg5(c));
+    if (srclen < 0 && src) {
+        srclen = 0;
+        while (src[srclen] != 0) srclen++;
+        srclen++;
+    }
+    if (dstlen == 0) {
+        SetRet(c, srclen > 0 ? srclen : 0);
+        return;
+    }
+    if (src && dst) {
+        int n = std::min(srclen, dstlen);
+        for (int i = 0; i < n; ++i) dst[i] = static_cast<char>(src[i] & 0x7F);
+        SetRet(c, n);
+    } else {
+        SetRet(c, 0);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Global / Local Memory
+// ---------------------------------------------------------------------------
+void Stub_GlobalAlloc(CpuContext *c) {
+    std::size_t sz = static_cast<std::size_t>(Arg1(c));
+    SetRet(c, reinterpret_cast<std::uint64_t>(std::malloc(sz ? sz : 1)));
+}
+void Stub_GlobalLock(CpuContext *c) { SetRet(c, Arg0(c)); }
+void Stub_GlobalUnlock(CpuContext *c) { SetRet(c, 0); }
+void Stub_GlobalFree(CpuContext *c) {
+    if (Arg0(c)) std::free(reinterpret_cast<void *>(Arg0(c)));
+    SetRet(c, 0);
+}
+void Stub_LocalFree(CpuContext *c) {
+    if (Arg0(c)) std::free(reinterpret_cast<void *>(Arg0(c)));
+    SetRet(c, 0);
+}
+void Stub_FlushFileBuffers(CpuContext *c) { SetRet(c, 1); }
+void Stub_SetHandleInformation(CpuContext *c) { SetRet(c, 1); }
+void Stub_FreeLibrary(CpuContext *c) { SetRet(c, 1); }
+
+void Stub_CreateDirectoryA(CpuContext *c) {
+    const char *p = reinterpret_cast<const char *>(Arg0(c));
+    if (p) {
+        std::string r = ResolveGuestPath(p);
+        mkdir(r.c_str(), 0755);
+    }
+    SetRet(c, 1);
+}
+void Stub_CreateDirectoryW(CpuContext *c) {
+    const auto *w = reinterpret_cast<const std::uint16_t *>(Arg0(c));
+    if (w) {
+        std::string r = ResolveGuestPath(Utf16ToUtf8(w).c_str());
+        mkdir(r.c_str(), 0755);
+    }
+    SetRet(c, 1);
+}
+void Stub_RemoveDirectoryA(CpuContext *c) {
+    const char *p = reinterpret_cast<const char *>(Arg0(c));
+    if (p) {
+        std::string r = ResolveGuestPath(p);
+        rmdir(r.c_str());
+    }
+    SetRet(c, 1);
+}
+
+// ---------------------------------------------------------------------------
+// MSVCR120.dll C Runtime Stubs
+// ---------------------------------------------------------------------------
+void Stub_initterm(CpuContext *c) {
+    std::uint64_t first = Arg0(c);
+    std::uint64_t last = Arg1(c);
+    if (first == 0 || last == 0 || first >= last) {
+        SetRet(c, 0);
+        return;
+    }
+    const std::uint64_t count = (last - first) / 8;
+    Log("[crt] _initterm: %llu entries (0x%llx .. 0x%llx)",
+        static_cast<unsigned long long>(count),
+        static_cast<unsigned long long>(first),
+        static_cast<unsigned long long>(last));
+    for (std::uint64_t p = first; p < last; p += 8) {
+        std::uint64_t fn = recomp::GuestLoad<std::uint64_t>(p);
+        if (fn != 0 && g_api != nullptr) {
+            c->rip = fn;
+            g_api->call(c, fn, c->rip);
+        }
+    }
+    SetRet(c, 0);
+}
+
+void Stub_initterm_e(CpuContext *c) {
+    std::uint64_t first = Arg0(c);
+    std::uint64_t last = Arg1(c);
+    if (first == 0 || last == 0 || first >= last) {
+        SetRet(c, 0);
+        return;
+    }
+    Log("[crt] _initterm_e: 0x%llx .. 0x%llx",
+        static_cast<unsigned long long>(first), static_cast<unsigned long long>(last));
+    for (std::uint64_t p = first; p < last; p += 8) {
+        std::uint64_t fn = recomp::GuestLoad<std::uint64_t>(p);
+        if (fn != 0 && g_api != nullptr) {
+            c->rip = fn;
+            g_api->call(c, fn, c->rip);
+            if (static_cast<std::int32_t>(c->r[recomp::RAX]) != 0) {
+                SetRet(c, c->r[recomp::RAX]);
+                return;
+            }
+        }
+    }
+    SetRet(c, 0);
+}
+
+void Stub_crt_lock(CpuContext *c) { SetRet(c, 0); }
+void Stub_crt_unlock(CpuContext *c) { SetRet(c, 0); }
+void Stub_onexit(CpuContext *c) { SetRet(c, Arg0(c)); }
+void Stub_dllonexit(CpuContext *c) { SetRet(c, Arg0(c)); }
+void Stub_XcptFilter(CpuContext *c) { SetRet(c, 1); }
+void Stub_getmainargs(CpuContext *c) {
+    static const char *kArgv[] = {"Darksiders2.exe", nullptr};
+    static const char *kEnv[] = {nullptr};
+    if (Arg0(c)) *reinterpret_cast<std::uint32_t *>(Arg0(c)) = 1;
+    if (Arg1(c)) *reinterpret_cast<const char ***>(Arg1(c)) = kArgv;
+    if (Arg2(c)) *reinterpret_cast<const char ***>(Arg2(c)) = kEnv;
+    SetRet(c, 0);
+}
+void Stub_set_app_type(CpuContext *c) { SetRet(c, 0); }
+void Stub_crtGetShowWindowMode(CpuContext *c) { SetRet(c, 10); }
+void Stub_crtSetUnhandledExceptionFilter(CpuContext *c) {
+    SetRet(c, g_unhandled_exception_filter.exchange(Arg0(c)));
+}
+void Stub_configthreadlocale(CpuContext *c) { SetRet(c, 0); }
+void Stub_setusermatherr(CpuContext *c) { SetRet(c, 0); }
+void Stub_amsg_exit(CpuContext *c) { SetRet(c, 0); }
+void Stub_cexit(CpuContext *c) { SetRet(c, 0); }
+void Stub_exit(CpuContext *c) { exit(static_cast<int>(Arg0(c))); }
+void Stub_abort(CpuContext * /*c*/) { exit(1); }
+
+thread_local int g_crt_errno = 0;
+void Stub_errno(CpuContext *c) { SetRet(c, reinterpret_cast<std::uint64_t>(&g_crt_errno)); }
+void Stub_purecall(CpuContext * /*c*/) { Log("[crt] pure virtual function call!"); }
+
+void Stub_malloc(CpuContext *c) {
+    SetRet(c, reinterpret_cast<std::uint64_t>(std::malloc(static_cast<std::size_t>(Arg0(c)))));
+}
+void Stub_calloc(CpuContext *c) {
+    SetRet(c, reinterpret_cast<std::uint64_t>(std::calloc(static_cast<std::size_t>(Arg0(c)),
+                                                          static_cast<std::size_t>(Arg1(c)))));
+}
+void Stub_realloc(CpuContext *c) {
+    SetRet(c, reinterpret_cast<std::uint64_t>(std::realloc(reinterpret_cast<void *>(Arg0(c)),
+                                                          static_cast<std::size_t>(Arg1(c)))));
+}
+void Stub_free(CpuContext *c) {
+    if (Arg0(c)) std::free(reinterpret_cast<void *>(Arg0(c)));
+    SetRet(c, 0);
+}
+void Stub_aligned_malloc(CpuContext *c) {
+    std::size_t sz = static_cast<std::size_t>(Arg0(c));
+    std::size_t al = static_cast<std::size_t>(Arg1(c));
+    void *ptr = nullptr;
+    if (al < sizeof(void *)) al = sizeof(void *);
+    posix_memalign(&ptr, al, sz ? sz : 1);
+    SetRet(c, reinterpret_cast<std::uint64_t>(ptr));
+}
+void Stub_aligned_free(CpuContext *c) {
+    if (Arg0(c)) std::free(reinterpret_cast<void *>(Arg0(c)));
+    SetRet(c, 0);
+}
+
+// ---------------------------------------------------------------------------
+// SteamAPI Stubs
+// ---------------------------------------------------------------------------
+void Stub_SteamAPI_Init(CpuContext *c) {
+    Log("[steam] SteamAPI_Init stubbed -> 1");
+    SetRet(c, 1);
+}
+void Stub_SteamAPI_Shutdown(CpuContext *c) { SetRet(c, 0); }
+void Stub_SteamAPI_RestartAppIfNecessary(CpuContext *c) { SetRet(c, 0); }
+void Stub_SteamAPI_RunCallbacks(CpuContext *c) { SetRet(c, 0); }
+void Stub_SteamAPI_RegisterCallback(CpuContext *c) { SetRet(c, 0); }
+void Stub_SteamAPI_UnregisterCallback(CpuContext *c) { SetRet(c, 0); }
+void Stub_SteamAPI_RegisterCallResult(CpuContext *c) { SetRet(c, 0); }
+void Stub_SteamAPI_UnregisterCallResult(CpuContext *c) { SetRet(c, 0); }
+
+static std::uint64_t g_steam_dummy_vtable[64] = {};
+static std::uint64_t *g_steam_dummy_inst = g_steam_dummy_vtable;
+
+void Stub_SteamUser(CpuContext *c) { SetRet(c, reinterpret_cast<std::uint64_t>(&g_steam_dummy_inst)); }
+void Stub_SteamUtils(CpuContext *c) { SetRet(c, reinterpret_cast<std::uint64_t>(&g_steam_dummy_inst)); }
+void Stub_SteamApps(CpuContext *c) { SetRet(c, reinterpret_cast<std::uint64_t>(&g_steam_dummy_inst)); }
+void Stub_SteamUserStats(CpuContext *c) { SetRet(c, reinterpret_cast<std::uint64_t>(&g_steam_dummy_inst)); }
+void Stub_SteamFriends(CpuContext *c) { SetRet(c, reinterpret_cast<std::uint64_t>(&g_steam_dummy_inst)); }
+void Stub_SteamRemoteStorage(CpuContext *c) { SetRet(c, reinterpret_cast<std::uint64_t>(&g_steam_dummy_inst)); }
+
+// ---------------------------------------------------------------------------
+// USER32.dll Stubs
+// ---------------------------------------------------------------------------
+void Stub_GetSystemMetrics(CpuContext *c) {
+    std::uint32_t idx = static_cast<std::uint32_t>(Arg0(c));
+    if (idx == 0) SetRet(c, 1280);
+    else if (idx == 1) SetRet(c, 720);
+    else SetRet(c, 0);
+}
+void Stub_GetClientRect(CpuContext *c) {
+    auto *r = reinterpret_cast<std::int32_t *>(Arg1(c));
+    if (r) { r[0] = 0; r[1] = 0; r[2] = 1280; r[3] = 720; }
+    SetRet(c, 1);
+}
+void Stub_CreateWindowExA(CpuContext *c) { SetRet(c, 0x10001ull); }
+void Stub_RegisterClassExA(CpuContext *c) { SetRet(c, 0x10002ull); }
+void Stub_DefWindowProcA(CpuContext *c) { SetRet(c, 0); }
+void Stub_ShowWindow(CpuContext *c) { SetRet(c, 1); }
+void Stub_UpdateWindow(CpuContext *c) { SetRet(c, 1); }
+void Stub_SetWindowPos(CpuContext *c) { SetRet(c, 1); }
+void Stub_SetCursor(CpuContext *c) { SetRet(c, 0x10003ull); }
+void Stub_ShowCursor(CpuContext *c) { SetRet(c, 1); }
+void Stub_ClipCursor(CpuContext *c) { SetRet(c, 1); }
+void Stub_LoadCursorA(CpuContext *c) { SetRet(c, 0x10004ull); }
+void Stub_LoadIconA(CpuContext *c) { SetRet(c, 0x10005ull); }
+void Stub_PeekMessageA(CpuContext *c) { SetRet(c, 0); }
+void Stub_GetMessageA(CpuContext *c) { SetRet(c, 0); }
+void Stub_TranslateMessage(CpuContext *c) { SetRet(c, 0); }
+void Stub_DispatchMessageA(CpuContext *c) { SetRet(c, 0); }
+void Stub_GetActiveWindow(CpuContext *c) { SetRet(c, 0x10001ull); }
+void Stub_GetForegroundWindow(CpuContext *c) { SetRet(c, 0x10001ull); }
+void Stub_SetFocus(CpuContext *c) { SetRet(c, 0x10001ull); }
+void Stub_SetForegroundWindow(CpuContext *c) { SetRet(c, 1); }
+
+// ---------------------------------------------------------------------------
+// Fallback Generic Stub
+// ---------------------------------------------------------------------------
+void Stub_GenericFallback(CpuContext *c) {
+    const std::uint64_t thunk = g_active_thunk;
+    const std::uint64_t index = (thunk - kThunkBase) / kThunkStride;
+    const char *owner = (index < kMaxStubs && !g_slot_owner[index].empty())
+                            ? g_slot_owner[index].c_str()
+                            : "?";
+    const char *name = (index < kMaxStubs && !g_slot_name[index].empty())
+                           ? g_slot_name[index].c_str()
+                           : "?";
+    Log("[win32] UNIMPLEMENTED IMPORT: %s!%s (rcx=0x%llx, rdx=0x%llx, r8=0x%llx, r9=0x%llx)",
+        owner, name, Arg0(c), Arg1(c), Arg2(c), Arg3(c));
+    SetRet(c, 0);
+}
+
 }  // namespace
 
 // ---------------------------------------------------------------------------
@@ -1903,6 +3028,10 @@ void SetRenderingSurface(std::uint64_t vk_surface) {
 
 std::uint64_t RenderingSurface() { return g_vk_surface.load(); }
 
+void SetRenderingWindow(std::uint64_t sdl_window) {
+    g_sdl_window.store(sdl_window);
+}
+
 bool HasModule(const char *module) {
     std::lock_guard<std::mutex> lock(g_registry_mutex);
     return g_module_base.count(Lower(module ? module : "")) > 0;
@@ -1922,6 +3051,28 @@ void RegisterBuiltins() {
             StubFn fn;
         };
         static const Entry kEntries[] = {
+            {"xinput1_3.dll", "XInputGetState", Stub_OrdinalSuccess},
+            {"xinput1_3.dll", "XInputSetState", Stub_OrdinalSuccess},
+            {"xinput1_3.dll", "XInputGetCapabilities", Stub_OrdinalSuccess},
+            {"ws2_32.dll", "accept", Stub_OrdinalSuccess},
+            {"ws2_32.dll", "bind", Stub_OrdinalSuccess},
+            {"ws2_32.dll", "closesocket", Stub_OrdinalSuccess},
+            {"ws2_32.dll", "connect", Stub_OrdinalSuccess},
+            {"ws2_32.dll", "getsockname", Stub_OrdinalSuccess},
+            {"ws2_32.dll", "htons", Stub_Htons},
+            {"ws2_32.dll", "ioctlsocket", Stub_OrdinalSuccess},
+            {"ws2_32.dll", "listen", Stub_OrdinalSuccess},
+            {"ws2_32.dll", "ntohs", Stub_Ntohs},
+            {"ws2_32.dll", "recv", Stub_OrdinalSuccess},
+            {"ws2_32.dll", "select", Stub_OrdinalSuccess},
+            {"ws2_32.dll", "send", Stub_OrdinalSuccess},
+            {"ws2_32.dll", "setsockopt", Stub_OrdinalSuccess},
+            {"ws2_32.dll", "gethostname", Stub_OrdinalSuccess},
+            {"ws2_32.dll", "WSAGetLastError", Stub_WSAGetLastError},
+            {"ws2_32.dll", "WSAStartup", Stub_OrdinalSuccess},
+            {"ws2_32.dll", "__WSAFDIsSet", Stub_OrdinalSuccess},
+            {"oleaut32.dll", "SysAllocString", Stub_SysAllocString},
+            {"oleaut32.dll", "SysFreeString", Stub_SysFreeString},
             {"kernel32.dll", "VirtualAlloc", Stub_VirtualAlloc},
             {"kernel32.dll", "VirtualFree", Stub_VirtualFree},
             {"kernel32.dll", "VirtualProtect", Stub_VirtualProtect},
@@ -1979,6 +3130,131 @@ void RegisterBuiltins() {
             {"d3d11.dll", "D3D11CreateDeviceAndSwapChain", Stub_D3D11CreateDeviceAndSwapChain},
             {"dxgi.dll", "CreateDXGIFactory", Stub_CreateDXGIFactory},
             {"dxgi.dll", "CreateDXGIFactory1", Stub_CreateDXGIFactory},
+#if defined(D2_HAS_DXVK_D3D9)
+            {"d3d9.dll", "Direct3DCreate9", Stub_D3D9Create},
+#endif
+
+            // Kernel32 CRT Bootstrap & Diagnostics
+            {"kernel32.dll", "GetSystemTimeAsFileTime", Stub_GetSystemTimeAsFileTime},
+            {"kernel32.dll", "GetCurrentProcessId", Stub_GetCurrentProcessId},
+            {"kernel32.dll", "GetCurrentProcess", Stub_GetCurrentProcess},
+            {"kernel32.dll", "GetCurrentThread", Stub_GetCurrentThread},
+            {"kernel32.dll", "IsDebuggerPresent", Stub_IsDebuggerPresent},
+            {"kernel32.dll", "IsProcessorFeaturePresent", Stub_IsProcessorFeaturePresent},
+            {"kernel32.dll", "EncodePointer", Stub_EncodePointer},
+            {"kernel32.dll", "DecodePointer", Stub_DecodePointer},
+            {"kernel32.dll", "InitializeCriticalSectionAndSpinCount", Stub_InitializeCriticalSectionAndSpinCount},
+            {"kernel32.dll", "QueryPerformanceFrequency", Stub_QueryPerformanceFrequency},
+            {"kernel32.dll", "GetLastError", Stub_GetLastError},
+            {"kernel32.dll", "SetLastError", Stub_SetLastError},
+            {"kernel32.dll", "SetErrorMode", Stub_SetErrorMode},
+            {"kernel32.dll", "GetSystemInfo", Stub_GetSystemInfo},
+            {"kernel32.dll", "GetModuleFileNameA", Stub_GetModuleFileNameA},
+            {"kernel32.dll", "GetModuleFileNameW", Stub_GetModuleFileNameW},
+            {"kernel32.dll", "GetModuleHandleExA", Stub_GetModuleHandleExA},
+            {"kernel32.dll", "GetModuleHandleExW", Stub_GetModuleHandleExW},
+            {"kernel32.dll", "ExitProcess", Stub_ExitProcess},
+            {"kernel32.dll", "RaiseException", Stub_RaiseException},
+            {"kernel32.dll", "VirtualQuery", Stub_VirtualQuery},
+            {"kernel32.dll", "CreateEventA", Stub_CreateEventA},
+            {"kernel32.dll", "CreateEventW", Stub_CreateEventW},
+            {"kernel32.dll", "SetEvent", Stub_SetEvent},
+            {"kernel32.dll", "ResetEvent", Stub_ResetEvent},
+            {"kernel32.dll", "CreateMutexA", Stub_CreateMutexA},
+            {"kernel32.dll", "ReleaseMutex", Stub_ReleaseMutex},
+            {"kernel32.dll", "CreateSemaphoreA", Stub_CreateSemaphoreA},
+            {"kernel32.dll", "CreateSemaphoreW", Stub_CreateSemaphoreW},
+            {"kernel32.dll", "ReleaseSemaphore", Stub_ReleaseSemaphore},
+            {"kernel32.dll", "WaitForMultipleObjectsEx", Stub_WaitForMultipleObjectsEx},
+            {"kernel32.dll", "ResumeThread", Stub_ResumeThread},
+            {"kernel32.dll", "SuspendThread", Stub_SuspendThread},
+            {"kernel32.dll", "SetThreadPriority", Stub_SetThreadPriority},
+            {"kernel32.dll", "GetThreadPriority", Stub_GetThreadPriority},
+            {"kernel32.dll", "SetThreadAffinityMask", Stub_SetThreadAffinityMask},
+            {"kernel32.dll", "GetExitCodeThread", Stub_GetExitCodeThread},
+            {"kernel32.dll", "OutputDebugStringW", Stub_OutputDebugStringW},
+            {"kernel32.dll", "MultiByteToWideChar", Stub_MultiByteToWideChar},
+            {"kernel32.dll", "WideCharToMultiByte", Stub_WideCharToMultiByte},
+            {"kernel32.dll", "GlobalAlloc", Stub_GlobalAlloc},
+            {"kernel32.dll", "GlobalLock", Stub_GlobalLock},
+            {"kernel32.dll", "GlobalUnlock", Stub_GlobalUnlock},
+            {"kernel32.dll", "GlobalFree", Stub_GlobalFree},
+            {"kernel32.dll", "LocalFree", Stub_LocalFree},
+            {"kernel32.dll", "FlushFileBuffers", Stub_FlushFileBuffers},
+            {"kernel32.dll", "SetHandleInformation", Stub_SetHandleInformation},
+            {"kernel32.dll", "FreeLibrary", Stub_FreeLibrary},
+            {"kernel32.dll", "CreateDirectoryA", Stub_CreateDirectoryA},
+            {"kernel32.dll", "CreateDirectoryW", Stub_CreateDirectoryW},
+            {"kernel32.dll", "RemoveDirectoryA", Stub_RemoveDirectoryA},
+
+            // MSVCR120.dll C Runtime
+            {"msvcr120.dll", "_initterm", Stub_initterm},
+            {"msvcr120.dll", "_initterm_e", Stub_initterm_e},
+            {"msvcr120.dll", "__crtGetShowWindowMode", Stub_crtGetShowWindowMode},
+            {"msvcr120.dll", "__crtSetUnhandledExceptionFilter",
+             Stub_crtSetUnhandledExceptionFilter},
+            {"msvcr120.dll", "_lock", Stub_crt_lock},
+            {"msvcr120.dll", "_unlock", Stub_crt_unlock},
+            {"msvcr120.dll", "_onexit", Stub_onexit},
+            {"msvcr120.dll", "__dllonexit", Stub_dllonexit},
+            {"msvcr120.dll", "_XcptFilter", Stub_XcptFilter},
+            {"msvcr120.dll", "__getmainargs", Stub_getmainargs},
+            {"msvcr120.dll", "__set_app_type", Stub_set_app_type},
+            {"msvcr120.dll", "_configthreadlocale", Stub_configthreadlocale},
+            {"msvcr120.dll", "__setusermatherr", Stub_setusermatherr},
+            {"msvcr120.dll", "_amsg_exit", Stub_amsg_exit},
+            {"msvcr120.dll", "_cexit", Stub_cexit},
+            {"msvcr120.dll", "_exit", Stub_exit},
+            {"msvcr120.dll", "exit", Stub_exit},
+            {"msvcr120.dll", "abort", Stub_abort},
+            {"msvcr120.dll", "_errno", Stub_errno},
+            {"msvcr120.dll", "_purecall", Stub_purecall},
+            {"msvcr120.dll", "malloc", Stub_malloc},
+            {"msvcr120.dll", "calloc", Stub_calloc},
+            {"msvcr120.dll", "realloc", Stub_realloc},
+            {"msvcr120.dll", "free", Stub_free},
+            {"msvcr120.dll", "_aligned_malloc", Stub_aligned_malloc},
+            {"msvcr120.dll", "_aligned_free", Stub_aligned_free},
+            {"msvcr120.dll", "memset", Stub_memset},
+
+            // steam_api64.dll
+            {"steam_api64.dll", "SteamAPI_Init", Stub_SteamAPI_Init},
+            {"steam_api64.dll", "SteamAPI_Shutdown", Stub_SteamAPI_Shutdown},
+            {"steam_api64.dll", "SteamAPI_RestartAppIfNecessary", Stub_SteamAPI_RestartAppIfNecessary},
+            {"steam_api64.dll", "SteamAPI_RunCallbacks", Stub_SteamAPI_RunCallbacks},
+            {"steam_api64.dll", "SteamAPI_RegisterCallback", Stub_SteamAPI_RegisterCallback},
+            {"steam_api64.dll", "SteamAPI_UnregisterCallback", Stub_SteamAPI_UnregisterCallback},
+            {"steam_api64.dll", "SteamAPI_RegisterCallResult", Stub_SteamAPI_RegisterCallResult},
+            {"steam_api64.dll", "SteamAPI_UnregisterCallResult", Stub_SteamAPI_UnregisterCallResult},
+            {"steam_api64.dll", "SteamUser", Stub_SteamUser},
+            {"steam_api64.dll", "SteamUtils", Stub_SteamUtils},
+            {"steam_api64.dll", "SteamApps", Stub_SteamApps},
+            {"steam_api64.dll", "SteamUserStats", Stub_SteamUserStats},
+            {"steam_api64.dll", "SteamFriends", Stub_SteamFriends},
+            {"steam_api64.dll", "SteamRemoteStorage", Stub_SteamRemoteStorage},
+
+            // user32.dll
+            {"user32.dll", "GetSystemMetrics", Stub_GetSystemMetrics},
+            {"user32.dll", "GetClientRect", Stub_GetClientRect},
+            {"user32.dll", "CreateWindowExA", Stub_CreateWindowExA},
+            {"user32.dll", "RegisterClassExA", Stub_RegisterClassExA},
+            {"user32.dll", "DefWindowProcA", Stub_DefWindowProcA},
+            {"user32.dll", "ShowWindow", Stub_ShowWindow},
+            {"user32.dll", "UpdateWindow", Stub_UpdateWindow},
+            {"user32.dll", "SetWindowPos", Stub_SetWindowPos},
+            {"user32.dll", "SetCursor", Stub_SetCursor},
+            {"user32.dll", "ShowCursor", Stub_ShowCursor},
+            {"user32.dll", "ClipCursor", Stub_ClipCursor},
+            {"user32.dll", "LoadCursorA", Stub_LoadCursorA},
+            {"user32.dll", "LoadIconA", Stub_LoadIconA},
+            {"user32.dll", "PeekMessageA", Stub_PeekMessageA},
+            {"user32.dll", "GetMessageA", Stub_GetMessageA},
+            {"user32.dll", "TranslateMessage", Stub_TranslateMessage},
+            {"user32.dll", "DispatchMessageA", Stub_DispatchMessageA},
+            {"user32.dll", "GetActiveWindow", Stub_GetActiveWindow},
+            {"user32.dll", "GetForegroundWindow", Stub_GetForegroundWindow},
+            {"user32.dll", "SetFocus", Stub_SetFocus},
+            {"user32.dll", "SetForegroundWindow", Stub_SetForegroundWindow},
         };
         for (const Entry &e : kEntries) {
             AddStub(e.module, e.name, e.fn);
@@ -1992,7 +3268,56 @@ void RegisterBuiltins() {
 
 std::uint64_t ResolveImport(const char *module, const char *name) {
     RegisterBuiltins();
+    std::uint16_t ordinal = 0;
+    if (ParseOrdinalName(name, ordinal)) return ResolveImportOrdinal(module, ordinal);
+
+    const std::string mod = Lower(module ? module : "");
+    if (mod == "msvcr120.dll" && name != nullptr) {
+        if (std::strcmp(name, "_fmode") == 0) {
+            return reinterpret_cast<std::uint64_t>(&g_crt_fmode);
+        }
+        if (std::strcmp(name, "_commode") == 0) {
+            return reinterpret_cast<std::uint64_t>(&g_crt_commode);
+        }
+    }
+
     const std::string key = Key(module, name);
+    std::lock_guard<std::mutex> lock(g_registry_mutex);
+    auto it = g_exports.find(key);
+    if (it != g_exports.end()) return it->second;
+
+    const char *alt = nullptr;
+    if (mod == "kernel32.dll") alt = "kernelbase.dll";
+    else if (mod == "kernelbase.dll") alt = "kernel32.dll";
+    if (alt != nullptr) {
+        auto it2 = g_exports.find(Key(alt, name));
+        if (it2 != g_exports.end()) return it2->second;
+    }
+
+    // Auto-create a fallback thunk so the guest never jumps into unmapped memory.
+    if ((g_next_thunk - kThunkBase) / kThunkStride < kMaxStubs) {
+        const std::uint64_t thunk = g_next_thunk;
+        g_next_thunk += kThunkStride;
+        const std::size_t idx = (thunk - kThunkBase) / kThunkStride;
+        g_slot_table[idx] = Stub_GenericFallback;
+        g_slot_owner[idx] = module ? module : "?";
+        g_slot_name[idx] = name ? name : "?";
+        g_exports[key] = thunk;
+        Log("[win32] auto-bound fallback stub for %s!%s (thunk 0x%llx)",
+            module ? module : "?", name ? name : "?",
+            static_cast<unsigned long long>(thunk));
+        return thunk;
+    }
+    return 0;
+}
+
+std::uint64_t ResolveImportOrdinal(const char *module, std::uint16_t ordinal) {
+    RegisterBuiltins();
+    if (const char *name = OrdinalExportName(module, ordinal)) {
+        return ResolveImport(module, name);
+    }
+
+    const std::string key = OrdinalKey(module, ordinal);
     std::lock_guard<std::mutex> lock(g_registry_mutex);
     auto it = g_exports.find(key);
     if (it != g_exports.end()) return it->second;
@@ -2002,10 +3327,25 @@ std::uint64_t ResolveImport(const char *module, const char *name) {
     if (mod == "kernel32.dll") alt = "kernelbase.dll";
     else if (mod == "kernelbase.dll") alt = "kernel32.dll";
     if (alt != nullptr) {
-        auto it2 = g_exports.find(Key(alt, name));
+        auto it2 = g_exports.find(OrdinalKey(alt, ordinal));
         if (it2 != g_exports.end()) return it2->second;
     }
-    return 0;
+
+    if ((g_next_thunk - kThunkBase) / kThunkStride >= kMaxStubs) {
+        Log("[win32] thunk table full, dropping %s ordinal %u", module ? module : "?", ordinal);
+        return 0;
+    }
+
+    const std::uint64_t thunk = g_next_thunk;
+    g_next_thunk += kThunkStride;
+    const std::size_t idx = (thunk - kThunkBase) / kThunkStride;
+    g_slot_table[idx] = Stub_GenericFallback;
+    g_slot_owner[idx] = module ? module : "?";
+    g_slot_name[idx] = "Ordinal_" + std::to_string(ordinal);
+    g_exports[key] = thunk;
+    Log("[win32] auto-bound fallback stub for %s ordinal %u (thunk 0x%llx)",
+        module ? module : "?", ordinal, static_cast<unsigned long long>(thunk));
+    return thunk;
 }
 
 bool Dispatch(CpuContext *c, std::uint64_t thunk) {
@@ -2104,3 +3444,4 @@ void Shutdown() {
 }
 
 }  // namespace darksiders2::win32
+// Stubs em C puro com a assinatura correta esperada pela tabela de OUT.c

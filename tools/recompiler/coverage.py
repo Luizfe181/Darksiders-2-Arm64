@@ -16,7 +16,9 @@ for rva in sorted(funcs):
     end = funcs[rva]
     code = pe.read_rva(rva, end - rva)
     if not code: continue
-    for insn in md.disasm(code, pe.image_base + rva):
+    insns = list(md.disasm(code, pe.image_base + rva))
+    em._starts = {insn.address - pe.image_base for insn in insns}
+    for insn in insns:
         n_insn += 1
         tot[insn.mnemonic] += 1
         if em.translate(insn, rva, end) is None:

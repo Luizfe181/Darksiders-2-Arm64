@@ -2,6 +2,8 @@
  * Not to be distributed: this is the game's code.
  */
 #include <cstdint>
+#include <cmath>
+#include <chrono>
 #include "cpu_context.h"
 
 namespace vigil::recomp {
@@ -35314,7 +35316,7 @@ __attribute__((visibility("hidden"))) void f_59e3c(CpuContext *c) {
     GuestLoadV(v[0], (uint64_t)(B + 0x12fce20ull));
     GuestLoadV(v[6], (uint64_t)(B + 0x12fce30ull));
     GuestStoreV(r[0] + (uint64_t)(-0x28), v[7]);
-    { c->rip = B + 0x59e72ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* andnps xmm3, xmm1 */
+    { for (int k = 0; k < 2; ++k) v[3].q[k] = ~v[3].q[k] & v[1].q[k]; }
     { for (int k = 0; k < 4; ++k) v[0].f[k] = v[0].f[k] * v[3].f[k]; }
     GuestStoreV(r[4], v[8]);
     GuestLoadV(v[8], (uint64_t)(B + 0x12fcea0ull));
@@ -35322,21 +35324,21 @@ __attribute__((visibility("hidden"))) void f_59e3c(CpuContext *c) {
     { c->rip = B + 0x59e8aull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* paddd xmm1, xmm8 */
     { std::memcpy(&v[4], &v[8], 16); }
     { c->rip = B + 0x59e94ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* paddd xmm4, xmm8 */
-    { c->rip = B + 0x59e99ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* pandn xmm8, xmm1 */
+    { for (int k = 0; k < 2; ++k) v[8].q[k] = ~v[8].q[k] & v[1].q[k]; }
     GuestLoadV(v[1], (uint64_t)(B + 0x12fce50ull));
     { std::memcpy(&v[0], &v[4], 16); }
-    { c->rip = B + 0x59ea9ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* cvtdq2ps xmm2, xmm8 */
+    { const Vec256 src = v[8]; for (int k = 0; k < 4; ++k) v[2].f[k] = static_cast<float>(src.sd[k]); }
     { c->rip = B + 0x59eadull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* psubd xmm8, xmm4 */
     { std::memcpy(&v[7], &v[8], 16); }
     { c->rip = B + 0x59eb7ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* paddd xmm0, xmm4 */
     { for (int k = 0; k < 4; ++k) v[8].q[k] &= v[4].q[k]; }
     { for (int k = 0; k < 4; ++k) v[1].f[k] = v[1].f[k] * v[2].f[k]; }
     { for (int k = 0; k < 4; ++k) v[6].f[k] = v[6].f[k] * v[2].f[k]; }
-    { c->rip = B + 0x59ec6ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* pandn xmm7, xmm0 */
+    { for (int k = 0; k < 2; ++k) v[7].q[k] = ~v[7].q[k] & v[0].q[k]; }
     { for (int k = 0; k < 4; ++k) v[6].f[k] = v[6].f[k] + v[3].f[k]; }
     GuestLoadV(v[0], (uint64_t)(B + 0x12fce40ull));
     { for (int k = 0; k < 4; ++k) v[0].f[k] = v[0].f[k] * v[2].f[k]; }
-    { c->rip = B + 0x59ed7ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* pslld xmm7, 0x1d */
+    { const uint64_t count = 0x1dull; for (int k = 0; k < 4; ++k) v[7].d[k] = count >= 32 ? 0 : (v[7].d[k] << count); }
     { for (int k = 0; k < 4; ++k) v[6].f[k] = v[6].f[k] + v[0].f[k]; }
     { for (int k = 0; k < 4; ++k) v[0].q[k] ^= v[0].q[k]; }
     { for (int k = 0; k < 4; ++k) v[6].f[k] = v[6].f[k] + v[1].f[k]; }
@@ -35358,7 +35360,7 @@ __attribute__((visibility("hidden"))) void f_59e3c(CpuContext *c) {
     { Vec256 t; GuestLoadV(t, (uint64_t)(B + 0x12fce60ull)); for (int k = 0; k < 4; ++k) v[1].f[k] = v[1].f[k] + t.f[k]; }
     { Vec256 t; GuestLoadV(t, (uint64_t)(B + 0x12fcd80ull)); for (int k = 0; k < 4; ++k) v[0].f[k] = v[0].f[k] * t.f[k]; }
     { Vec256 t; GuestLoadV(t, (uint64_t)(B + 0x12fcd90ull)); for (int k = 0; k < 4; ++k) v[0].f[k] = v[0].f[k] + t.f[k]; }
-    { c->rip = B + 0x59f3aull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* andnps xmm3, xmm1 */
+    { for (int k = 0; k < 2; ++k) v[3].q[k] = ~v[3].q[k] & v[1].q[k]; }
     { for (int k = 0; k < 4; ++k) v[0].f[k] = v[0].f[k] * v[5].f[k]; }
     { Vec256 t; GuestLoadV(t, (uint64_t)(B + 0x12fcda0ull)); for (int k = 0; k < 4; ++k) v[0].f[k] = v[0].f[k] + t.f[k]; }
     { for (int k = 0; k < 4; ++k) v[0].f[k] = v[0].f[k] * v[5].f[k]; }
@@ -35368,7 +35370,7 @@ __attribute__((visibility("hidden"))) void f_59e3c(CpuContext *c) {
     { for (int k = 0; k < 4; ++k) v[0].q[k] &= v[8].q[k]; }
     GuestLoadV(v[8], r[4]);
     { for (int k = 0; k < 4; ++k) v[3].q[k] |= v[0].q[k]; }
-    { c->rip = B + 0x59f60ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* minps xmm3, xmmword ptr [rip + 0x12a2ef9] */
+    { const Vec256 lhs = v[3]; Vec256 rhs; GuestLoadV(rhs, (uint64_t)(B + 0x12fce60ull)); for (int k = 0; k < 4; ++k) v[3].f[k] = lhs.f[k] < rhs.f[k] ? lhs.f[k] : rhs.f[k]; }
     { for (int k = 0; k < 4; ++k) v[3].q[k] ^= v[7].q[k]; }
     GuestLoadV(v[7], r[0] + (uint64_t)(-0x28));
     GuestStore<float>((uint64_t)(B + 0x1f565d8ull), v[3].f[0]);
@@ -35392,7 +35394,7 @@ __attribute__((visibility("hidden"))) void f_59f7c(CpuContext *c) {
     GuestLoadV(v[0], (uint64_t)(B + 0x12fce20ull));
     GuestLoadV(v[6], (uint64_t)(B + 0x12fce30ull));
     GuestStoreV(r[0] + (uint64_t)(-0x28), v[7]);
-    { c->rip = B + 0x59fb2ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* andnps xmm3, xmm1 */
+    { for (int k = 0; k < 2; ++k) v[3].q[k] = ~v[3].q[k] & v[1].q[k]; }
     { for (int k = 0; k < 4; ++k) v[0].f[k] = v[0].f[k] * v[3].f[k]; }
     GuestStoreV(r[4], v[8]);
     GuestLoadV(v[8], (uint64_t)(B + 0x12fcea0ull));
@@ -35400,21 +35402,21 @@ __attribute__((visibility("hidden"))) void f_59f7c(CpuContext *c) {
     { c->rip = B + 0x59fcaull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* paddd xmm1, xmm8 */
     { std::memcpy(&v[4], &v[8], 16); }
     { c->rip = B + 0x59fd4ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* paddd xmm4, xmm8 */
-    { c->rip = B + 0x59fd9ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* pandn xmm8, xmm1 */
+    { for (int k = 0; k < 2; ++k) v[8].q[k] = ~v[8].q[k] & v[1].q[k]; }
     GuestLoadV(v[1], (uint64_t)(B + 0x12fce50ull));
     { std::memcpy(&v[0], &v[4], 16); }
-    { c->rip = B + 0x59fe9ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* cvtdq2ps xmm2, xmm8 */
+    { const Vec256 src = v[8]; for (int k = 0; k < 4; ++k) v[2].f[k] = static_cast<float>(src.sd[k]); }
     { c->rip = B + 0x59fedull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* psubd xmm8, xmm4 */
     { std::memcpy(&v[7], &v[8], 16); }
     { c->rip = B + 0x59ff7ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* paddd xmm0, xmm4 */
     { for (int k = 0; k < 4; ++k) v[8].q[k] &= v[4].q[k]; }
     { for (int k = 0; k < 4; ++k) v[1].f[k] = v[1].f[k] * v[2].f[k]; }
     { for (int k = 0; k < 4; ++k) v[6].f[k] = v[6].f[k] * v[2].f[k]; }
-    { c->rip = B + 0x5a006ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* pandn xmm7, xmm0 */
+    { for (int k = 0; k < 2; ++k) v[7].q[k] = ~v[7].q[k] & v[0].q[k]; }
     { for (int k = 0; k < 4; ++k) v[6].f[k] = v[6].f[k] + v[3].f[k]; }
     GuestLoadV(v[0], (uint64_t)(B + 0x12fce40ull));
     { for (int k = 0; k < 4; ++k) v[0].f[k] = v[0].f[k] * v[2].f[k]; }
-    { c->rip = B + 0x5a017ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* pslld xmm7, 0x1d */
+    { const uint64_t count = 0x1dull; for (int k = 0; k < 4; ++k) v[7].d[k] = count >= 32 ? 0 : (v[7].d[k] << count); }
     { for (int k = 0; k < 4; ++k) v[6].f[k] = v[6].f[k] + v[0].f[k]; }
     { for (int k = 0; k < 4; ++k) v[0].q[k] ^= v[0].q[k]; }
     { for (int k = 0; k < 4; ++k) v[6].f[k] = v[6].f[k] + v[1].f[k]; }
@@ -35436,7 +35438,7 @@ __attribute__((visibility("hidden"))) void f_59f7c(CpuContext *c) {
     { Vec256 t; GuestLoadV(t, (uint64_t)(B + 0x12fce60ull)); for (int k = 0; k < 4; ++k) v[1].f[k] = v[1].f[k] + t.f[k]; }
     { Vec256 t; GuestLoadV(t, (uint64_t)(B + 0x12fcd80ull)); for (int k = 0; k < 4; ++k) v[0].f[k] = v[0].f[k] * t.f[k]; }
     { Vec256 t; GuestLoadV(t, (uint64_t)(B + 0x12fcd90ull)); for (int k = 0; k < 4; ++k) v[0].f[k] = v[0].f[k] + t.f[k]; }
-    { c->rip = B + 0x5a07aull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* andnps xmm3, xmm1 */
+    { for (int k = 0; k < 2; ++k) v[3].q[k] = ~v[3].q[k] & v[1].q[k]; }
     { for (int k = 0; k < 4; ++k) v[0].f[k] = v[0].f[k] * v[5].f[k]; }
     { Vec256 t; GuestLoadV(t, (uint64_t)(B + 0x12fcda0ull)); for (int k = 0; k < 4; ++k) v[0].f[k] = v[0].f[k] + t.f[k]; }
     { for (int k = 0; k < 4; ++k) v[0].f[k] = v[0].f[k] * v[5].f[k]; }
@@ -35446,7 +35448,7 @@ __attribute__((visibility("hidden"))) void f_59f7c(CpuContext *c) {
     { for (int k = 0; k < 4; ++k) v[0].q[k] &= v[8].q[k]; }
     GuestLoadV(v[8], r[4]);
     { for (int k = 0; k < 4; ++k) v[3].q[k] |= v[0].q[k]; }
-    { c->rip = B + 0x5a0a0ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* minps xmm3, xmmword ptr [rip + 0x12a2db9] */
+    { const Vec256 lhs = v[3]; Vec256 rhs; GuestLoadV(rhs, (uint64_t)(B + 0x12fce60ull)); for (int k = 0; k < 4; ++k) v[3].f[k] = lhs.f[k] < rhs.f[k] ? lhs.f[k] : rhs.f[k]; }
     { for (int k = 0; k < 4; ++k) v[3].q[k] ^= v[7].q[k]; }
     GuestLoadV(v[7], r[0] + (uint64_t)(-0x28));
     GuestStore<float>((uint64_t)(B + 0x1f565dcull), v[3].f[0]);

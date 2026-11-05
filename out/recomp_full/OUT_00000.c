@@ -2,6 +2,8 @@
  * Not to be distributed: this is the game's code.
  */
 #include <cstdint>
+#include <cmath>
+#include <chrono>
 #include "cpu_context.h"
 
 namespace vigil::recomp {
@@ -25395,7 +25397,7 @@ __attribute__((visibility("hidden"))) void f_13c00(CpuContext *c) {
     { extern RcFn d_a3d68; RC_SAVE(); if (d_a3d68) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x13c40ull); c->rip = B + 0xa3d68ull; d_a3d68(c); } else rc->call(c, B + 0xa3d68ull, B + 0x13c40ull); RC_LOAD(); }
     r[0] = (uint32_t)(0x40ull);
     GuestStore<uint8_t>((uint64_t)(B + 0x1f19460ull), 0x0ull);
-    { c->rip = B + 0x13c4cull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* mov word ptr [rip + 0x1f058b1], ax */
+    GuestStore<uint16_t>((uint64_t)(B + 0x1f19504ull), (r[0] & 0xffffull));
     { c->flags = ArithFlags(c->flags, 0, r[4], 0x28ull, (r[4] + 0x28ull), 8); r[4] = (r[4] + 0x28ull); }
     { const uint64_t t = GuestLoad<uint64_t>(r[RSP]); r[RSP] += 8; c->rip = t; RC_SAVE(); return; }
     RC_SAVE(); c->rip = B + 0x13c58ull; return;
@@ -25418,7 +25420,7 @@ __attribute__((visibility("hidden"))) void f_13c58(CpuContext *c) {
     { extern RcFn d_a3d68; RC_SAVE(); if (d_a3d68) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x13c98ull); c->rip = B + 0xa3d68ull; d_a3d68(c); } else rc->call(c, B + 0xa3d68ull, B + 0x13c98ull); RC_LOAD(); }
     r[0] = (uint32_t)(0x40ull);
     GuestStore<uint8_t>((uint64_t)(B + 0x1f19540ull), 0x1ull);
-    { c->rip = B + 0x13ca4ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* mov word ptr [rip + 0x1f05939], ax */
+    GuestStore<uint16_t>((uint64_t)(B + 0x1f195e4ull), (r[0] & 0xffffull));
     { c->flags = ArithFlags(c->flags, 0, r[4], 0x28ull, (r[4] + 0x28ull), 8); r[4] = (r[4] + 0x28ull); }
     { const uint64_t t = GuestLoad<uint64_t>(r[RSP]); r[RSP] += 8; c->rip = t; RC_SAVE(); return; }
     RC_SAVE(); c->rip = B + 0x13cb0ull; return;
@@ -25441,7 +25443,7 @@ __attribute__((visibility("hidden"))) void f_13cb0(CpuContext *c) {
     { extern RcFn d_a3d68; RC_SAVE(); if (d_a3d68) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x13cf0ull); c->rip = B + 0xa3d68ull; d_a3d68(c); } else rc->call(c, B + 0xa3d68ull, B + 0x13cf0ull); RC_LOAD(); }
     r[0] = (uint32_t)(0x40ull);
     GuestStore<uint8_t>((uint64_t)(B + 0x1f19620ull), 0x1ull);
-    { c->rip = B + 0x13cfcull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* mov word ptr [rip + 0x1f059c1], ax */
+    GuestStore<uint16_t>((uint64_t)(B + 0x1f196c4ull), (r[0] & 0xffffull));
     { c->flags = ArithFlags(c->flags, 0, r[4], 0x28ull, (r[4] + 0x28ull), 8); r[4] = (r[4] + 0x28ull); }
     { const uint64_t t = GuestLoad<uint64_t>(r[RSP]); r[RSP] += 8; c->rip = t; RC_SAVE(); return; }
     RC_SAVE(); c->rip = B + 0x13d08ull; return;
@@ -25464,7 +25466,7 @@ __attribute__((visibility("hidden"))) void f_13d08(CpuContext *c) {
     { extern RcFn d_a3d68; RC_SAVE(); if (d_a3d68) { c->r[RSP] -= 8; GuestStore<uint64_t>(c->r[RSP], B + 0x13d48ull); c->rip = B + 0xa3d68ull; d_a3d68(c); } else rc->call(c, B + 0xa3d68ull, B + 0x13d48ull); RC_LOAD(); }
     r[0] = (uint32_t)(0x40ull);
     GuestStore<uint8_t>((uint64_t)(B + 0x1f19700ull), 0x0ull);
-    { c->rip = B + 0x13d54ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* mov word ptr [rip + 0x1f05a49], ax */
+    GuestStore<uint16_t>((uint64_t)(B + 0x1f197a4ull), (r[0] & 0xffffull));
     { c->flags = ArithFlags(c->flags, 0, r[4], 0x28ull, (r[4] + 0x28ull), 8); r[4] = (r[4] + 0x28ull); }
     { const uint64_t t = GuestLoad<uint64_t>(r[RSP]); r[RSP] += 8; c->rip = t; RC_SAVE(); return; }
     RC_SAVE(); c->rip = B + 0x13d60ull; return;

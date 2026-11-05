@@ -121,12 +121,13 @@ std::string GetDataRoot();
 std::string ResolveGuestPath(const char *win_path);
 
 // ---------------------------------------------------------------------------
-// D3D11 / DXGI -- DXVK 1.10.3
+// D3D11 / DXGI -- optional DXVK 1.10.3 compatibility path
 //
 // DXVK implements these entry points. It is loaded at run time from
 // libdxvk_d3d11.so when present (override with D2_DXVK); until then the shims
 // fail the way a machine without a GPU does instead of crashing, and the log
-// says what is missing.
+// says what is missing. This is not the game's primary renderer: the game
+// creates a D3D9 device, which needs a separate D3D9-to-Vulkan COM bridge.
 //
 // DXVK's swapchain expects an HWND on Windows. Android has none: the swapchain
 // has to be built on the VkSurfaceKHR that the platform layer created, which is
@@ -138,6 +139,7 @@ bool IsDxvkLoaded();
 
 void SetRenderingSurface(std::uint64_t vk_surface);
 std::uint64_t RenderingSurface();
+void SetRenderingWindow(std::uint64_t sdl_window);
 
 // HRESULT E_FAIL, the value Windows returns when no device can be made.
 inline constexpr std::int32_t kD3dErrFail = static_cast<std::int32_t>(0x80004005u);
@@ -153,10 +155,10 @@ const RcApi *GetRecompApi() noexcept;
 // Binds every built-in shim to a thunk. Idempotent. Call once at startup.
 void RegisterBuiltins();
 
-// Resolves "kernel32.dll!VirtualAlloc" style imports. Returns a thunk, or 0 when
-// the API is not shimmed yet (the caller should log it and keep the guest
-// function on the interpreter).
+// Resolves "kernel32.dll!VirtualAlloc" style imports. Unknown exports receive a
+// generic fallback thunk so the guest never calls an unmapped address.
 std::uint64_t ResolveImport(const char *module, const char *name);
+std::uint64_t ResolveImportOrdinal(const char *module, std::uint16_t ordinal);
 
 // True when `module` is a module this layer knows (real Windows DLL or a
 // virtual one such as d3d11.dll that we answer for).

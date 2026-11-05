@@ -1796,7 +1796,7 @@ __attribute__((visibility("hidden"))) void f_10418dc(CpuContext *c) {
     RC_LOAD();
     { c->rip = B + 0x10418dcull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* leave  */
     { c->rip = B + 0x10418ddull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* adc byte ptr [rcx + rax], al */
-    if (Cond(0xd, c->flags)) goto L_10418f2;
+    { c->rip = B + 0x10418e0ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* jge 0x1410418f2 */
     { c->flags = ArithFlags(c->flags, 0, (r[0] & 0xffull), 0x1ull, ((r[0] & 0xffull) + 0x1ull), 1); r[0] = (r[0] & ~0xffull) | ((((r[0] & 0xffull) + 0x1ull)) & 0xffull); }
     r[2] = (uint32_t)(r[0]);
     { c->flags = ArithFlags(c->flags, 0, (r[0] & 0xffull), 0x1ull, ((r[0] & 0xffull) + 0x1ull), 1); r[0] = (r[0] & ~0xffull) | ((((r[0] & 0xffull) + 0x1ull)) & 0xffull); }
@@ -31967,7 +31967,7 @@ L_105cbf0: ;
     if (Cond(0x5, c->flags)) goto L_105cbf0;
     goto L_105cb87;
     
-    if (Cond(0x0, c->flags)) goto L_105cbd3;
+    { c->rip = B + 0x105cc08ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* jo 0x14105cbd3 */
     { c->flags = ArithFlags(c->flags, 0, (r[0] & 0xffffffffull), 0x5ca8b01ull, ((r[0] & 0xffffffffull) + 0x5ca8b01ull), 4); r[0] = (uint32_t)(((r[0] & 0xffffffffull) + 0x5ca8b01ull)); }
     { c->flags = ArithFlags(c->flags, 0, (r[3] & 0xffffffffull), (r[1] & 0xffffffffull), ((r[3] & 0xffffffffull) + (r[1] & 0xffffffffull)), 4); r[3] = (uint32_t)(((r[3] & 0xffffffffull) + (r[1] & 0xffffffffull))); }
     { c->rip = B + 0x105cc11ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* retf 0x105 */

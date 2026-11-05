@@ -17637,9 +17637,9 @@ L_d8d543: ;
     { c->rip = B + 0xd8d558ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* rcr r8d, cl */
     { c->flags = ArithFlags(c->flags, 0, GuestLoad<uint8_t>(r[3] + (uint64_t)(-0x2d)), (r[2] & 0xffull), (GuestLoad<uint8_t>(r[3] + (uint64_t)(-0x2d)) + (r[2] & 0xffull)), 1); GuestStore<uint8_t>(r[3] + (uint64_t)(-0x2d), (GuestLoad<uint8_t>(r[3] + (uint64_t)(-0x2d)) + (r[2] & 0xffull))); }
     { c->rip = B + 0xd8d55eull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* fadd dword ptr [rax] */
-    if (Cond(0x3, c->flags)) goto L_d8d536;
+    { c->rip = B + 0xd8d560ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* jae 0x140d8d536 */
     { c->rip = B + 0xd8d562ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* fadd dword ptr [rax] */
-    { RC_SAVE(); rc->call(c, B + 0x-442651c4ull, B + 0xd8d569ull); RC_LOAD(); }
+    { RC_SAVE(); rc->call(c, B + 0xffffffffbbd9ae3cull, B + 0xd8d569ull); RC_LOAD(); }
     RC_SAVE(); c->rip = B + 0xd8d578ull; return;
 }
 

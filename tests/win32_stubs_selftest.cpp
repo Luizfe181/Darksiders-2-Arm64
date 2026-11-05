@@ -11,6 +11,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <string>
 
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -110,7 +111,106 @@ int main() {
 
     const std::uint64_t va_thunk = win32::ResolveImport(K32, "VirtualAlloc");
     CHECK(va_thunk != 0 && win32::IsThunk(va_thunk), "VirtualAlloc resolves to a thunk");
-    CHECK(win32::ResolveImport(K32, "NoSuchApi") == 0, "unknown import resolves to 0");
+    const std::uint64_t missing_thunk = win32::ResolveImport(K32, "NoSuchApi");
+    CHECK(missing_thunk != 0 && win32::IsThunk(missing_thunk),
+          "unknown import gets a fallback thunk");
+    Reset();
+    CHECK(win32::Dispatch(&g_ctx, missing_thunk) && Ret() == 0,
+          "unknown import fallback returns zero safely");
+    const std::uint64_t ordinal_thunk = win32::ResolveImportOrdinal(K32, 7);
+    CHECK(ordinal_thunk != 0 && win32::IsThunk(ordinal_thunk),
+          "ordinal import gets a fallback thunk");
+    CHECK(win32::ResolveImportOrdinal(K32, 7) == ordinal_thunk,
+          "ordinal import resolution is stable");
+    CHECK(win32::ResolveImportOrdinal(K32, 8) != ordinal_thunk,
+          "different ordinals receive distinct thunks");
+    const std::uint64_t fmode_import =
+        win32::ResolveImport("MSVCR120.dll", "_fmode");
+    const std::uint64_t commode_import =
+        win32::ResolveImport("msvcr120.dll", "_commode");
+    CHECK(fmode_import != 0 && !win32::IsThunk(fmode_import),
+          "MSVCR120 _fmode resolves to imported data, not a function thunk");
+    CHECK(commode_import != 0 && !win32::IsThunk(commode_import),
+          "MSVCR120 _commode resolves to imported data, not a function thunk");
+    if (fmode_import != 0 && commode_import != 0) {
+        *reinterpret_cast<std::int32_t *>(fmode_import) = 0x1234;
+        *reinterpret_cast<std::int32_t *>(commode_import) = 0x5678;
+        CHECK(*reinterpret_cast<std::int32_t *>(win32::ResolveImport(
+                  "msvcr120.dll", "_fmode")) == 0x1234 &&
+                  *reinterpret_cast<std::int32_t *>(win32::ResolveImport(
+                      "msvcr120.dll", "_commode")) == 0x5678,
+              "CRT imported data remains writable and stable");
+    }
+    CHECK(win32::ResolveImportOrdinal("XINPUT1_3.dll", 2) ==
+              win32::ResolveImport("XINPUT1_3.dll", "XInputGetState"),
+          "XInput ordinal 2 maps to XInputGetState");
+    CHECK(win32::ResolveImportOrdinal("WS2_32.dll", 115) ==
+              win32::ResolveImport("WS2_32.dll", "WSAStartup"),
+          "Winsock ordinal 115 maps to WSAStartup");
+    CHECK(win32::ResolveImportOrdinal("OLEAUT32.dll", 2) ==
+              win32::ResolveImport("OLEAUT32.dll", "SysAllocString"),
+          "OleAut ordinal 2 maps to SysAllocString");
+    CHECK(win32::ResolveImportOrdinal("OLEAUT32.dll", 6) ==
+              win32::ResolveImport("OLEAUT32.dll", "SysFreeString"),
+          "OleAut ordinal 6 maps to SysFreeString");
+    CHECK(win32::ResolveImport("XINPUT1_3.dll", "Ordinal_2") ==
+              win32::ResolveImportOrdinal("XINPUT1_3.dll", 2),
+          "Ordinal_N names resolve through the ordinal table");
+
+    std::uint8_t xinput_state[12];
+    std::memset(xinput_state, 0xFF, sizeof(xinput_state));
+    Reset(0, reinterpret_cast<std::uint64_t>(xinput_state));
+    CHECK(win32::Dispatch(&g_ctx, win32::ResolveImportOrdinal("XINPUT1_3.dll", 2)) &&
+              Ret() == 0,
+          "XInput ordinal stub reports success");
+    bool xinput_state_zeroed = true;
+    for (std::uint8_t byte : xinput_state) xinput_state_zeroed &= byte == 0;
+    CHECK(xinput_state_zeroed, "XInput ordinal stub initializes the state output");
+
+    std::uint8_t memset_buffer[8];
+    std::memset(memset_buffer, 0xCC, sizeof(memset_buffer));
+    Reset(reinterpret_cast<std::uint64_t>(memset_buffer), 0x1AB, sizeof(memset_buffer));
+    CHECK(Call("MSVCR120.dll", "memset") &&
+              Ret() == reinterpret_cast<std::uint64_t>(memset_buffer),
+          "MSVCR120 memset returns the destination");
+    bool memset_bytes_correct = true;
+    for (std::uint8_t byte : memset_buffer) memset_bytes_correct &= byte == 0xAB;
+    CHECK(memset_bytes_correct, "MSVCR120 memset fills the requested bytes");
+
+    const char16_t bstr_source[] = u"rea";
+    Reset(reinterpret_cast<std::uint64_t>(bstr_source));
+    CHECK(Call("OLEAUT32.dll", "SysAllocString"), "SysAllocString ordinal alias dispatched");
+    auto *bstr = reinterpret_cast<char16_t *>(Ret());
+    CHECK(bstr != nullptr && std::u16string(bstr) == u"rea",
+          "SysAllocString returns a BSTR copy");
+    if (bstr != nullptr) {
+        Reset(reinterpret_cast<std::uint64_t>(bstr));
+        CHECK(Call("OLEAUT32.dll", "SysFreeString"), "SysFreeString ordinal alias dispatched");
+    }
+
+    CHECK(win32::ResolveImport("WS2_32.dll", "Ordinal_115") ==
+              win32::ResolveImport("WS2_32.dll", "WSAStartup"),
+          "Winsock Ordinal_N alias resolves to its registered stub");
+    Reset();
+    CHECK(Call("WS2_32.dll", "WSAStartup") && Ret() == 0,
+          "Winsock ordinal stubs return success");
+    const std::uint64_t wsa_startup = win32::ResolveImportOrdinal("WS2_32.dll", 115);
+    std::uint8_t wsa_data[408];
+    std::memset(wsa_data, 0xFF, sizeof(wsa_data));
+    Reset(0x0202, reinterpret_cast<std::uint64_t>(wsa_data));
+    CHECK(win32::Dispatch(&g_ctx, wsa_startup) && Ret() == 0,
+          "WSAStartup ordinal initializes successfully");
+    CHECK(*reinterpret_cast<std::uint16_t *>(wsa_data) == 0x0202 &&
+              *reinterpret_cast<std::uint16_t *>(wsa_data + 2) == 0x0202,
+          "WSAStartup reports Winsock 2.2");
+    bool wsa_data_zeroed = true;
+    for (std::size_t i = 4; i < sizeof(wsa_data); ++i) {
+        wsa_data_zeroed &= wsa_data[i] == 0;
+    }
+    CHECK(wsa_data_zeroed, "WSAStartup initializes its output structure");
+    Reset(0x1234);
+    CHECK(Call("WS2_32.dll", "htons") && Ret() == 0x3412,
+          "Winsock htons ordinal performs byte-order conversion");
     CHECK(win32::ResolveImport("kernelbase.dll", "VirtualAlloc") == va_thunk,
           "kernel32/kernelbase aliasing gives the same thunk");
 
@@ -127,6 +227,10 @@ int main() {
     Reset(k32_mod, reinterpret_cast<std::uint64_t>("VirtualAlloc"));
     CHECK(Call(K32, "GetProcAddress"), "GetProcAddress dispatched");
     CHECK(Ret() == va_thunk, "GetProcAddress returns the same thunk");
+
+    Reset(k32_mod, 7);
+    CHECK(Call(K32, "GetProcAddress"), "GetProcAddress ordinal dispatched");
+    CHECK(Ret() == ordinal_thunk, "GetProcAddress resolves ordinal exports");
 
     // Windows behaviour: the main module has no such export, so this must fail.
     Reset(main_mod, reinterpret_cast<std::uint64_t>("VirtualAlloc"));
@@ -507,7 +611,7 @@ int main() {
     Call(K32, "DeleteFileA");
     CHECK(Ret() == 0, "DeleteFileA on a missing file returns 0");
 
-    std::printf("\n== D3D11 / DXGI entry points ==\n");
+    std::printf("\n== D3D11 / DXGI COM tracing ==\n");
     {
         const std::uint64_t device_thunk = win32::ResolveImport("d3d11.dll", "D3D11CreateDevice");
         CHECK(device_thunk != 0 && win32::IsThunk(device_thunk),
@@ -516,27 +620,52 @@ int main() {
               "D3D11CreateDeviceAndSwapChain resolves to a thunk");
         CHECK(win32::ResolveImport("dxgi.dll", "CreateDXGIFactory") != 0,
               "CreateDXGIFactory resolves to a thunk");
-        CHECK(win32::ResolveImport("dxgi.dll", "CreateDXGIFactory1") != 0,
-              "CreateDXGIFactory1 shares the CreateDXGIFactory stub");
-        CHECK(!win32::IsDxvkLoaded(), "no DXVK is loaded in this test");
 
-        // With no DXVK the call must fail cleanly, not crash: 10 arguments,
-        // the last six on the guest stack.
+        // D3D11CreateDevice(adapter, type, sw, flags, levels, n, sdk,
+        //                   ppDevice, pFeatureLevel, ppContext)
+        std::uint64_t device = 0;
+        std::uint64_t context = 0;
+        std::int32_t feature_level = 0;
         Reset(0, 1, 0, 0);
         SetStackArg(0, 0);
         SetStackArg(1, 0);
         SetStackArg(2, 7);
-        SetStackArg(3, 0);
-        SetStackArg(4, 0);
-        SetStackArg(5, 0);
+        SetStackArg(3, reinterpret_cast<std::uint64_t>(&device));
+        SetStackArg(4, reinterpret_cast<std::uint64_t>(&feature_level));
+        SetStackArg(5, reinterpret_cast<std::uint64_t>(&context));
         CHECK(Call("d3d11.dll", "D3D11CreateDevice"), "D3D11CreateDevice dispatched");
-        CHECK(static_cast<std::int32_t>(Ret()) == win32::kD3dErrFail,
-              "D3D11CreateDevice returns E_FAIL without DXVK");
+        CHECK(static_cast<std::int32_t>(Ret()) == 0, "D3D11CreateDevice returns S_OK (mock)");
+        CHECK(device != 0 && context != 0, "a mock device and context were returned");
+        CHECK(feature_level == 0xB000, "feature level 11_0 reported to the engine");
 
-        Reset(0, 0);
+        // The guest reads [this] for the vtable, then vtable[n] for the method.
+        const auto *vtable =
+            reinterpret_cast<const std::uint64_t *>(*reinterpret_cast<const std::uint64_t *>(device));
+        CHECK(vtable != nullptr, "the mock object exposes a vtable");
+        CHECK(win32::IsThunk(vtable[2]), "vtable slots are guest-callable thunks");
+        CHECK(win32::IsThunk(vtable[5]), "the CreateTexture2D slot is a thunk");
+
+        // Call Release through the vtable exactly as the guest would.
+        Reset(device);
+        CHECK(win32::Dispatch(&g_ctx, vtable[2]), "Release dispatched through the vtable");
+        CHECK(static_cast<std::int32_t>(Ret()) == 0, "Release drops the mock refcount to 0");
+
+        // CreateDXGIFactory(riid, ppFactory)
+        std::uint64_t factory = 0;
+        Reset(0, reinterpret_cast<std::uint64_t>(&factory));
         CHECK(Call("dxgi.dll", "CreateDXGIFactory"), "CreateDXGIFactory dispatched");
-        CHECK(static_cast<std::int32_t>(Ret()) == win32::kD3dErrFail,
-              "CreateDXGIFactory returns E_FAIL without DXVK");
+        CHECK(static_cast<std::int32_t>(Ret()) == 0 && factory != 0,
+              "a mock IDXGIFactory was returned");
+
+        // IDXGIFactory::CreateSwapChain(device, desc, ppSwapChain)
+        const auto *factory_vtable = reinterpret_cast<const std::uint64_t *>(
+            *reinterpret_cast<const std::uint64_t *>(factory));
+        std::uint64_t swapchain = 0;
+        Reset(factory, 0, 0, reinterpret_cast<std::uint64_t>(&swapchain));
+        CHECK(win32::Dispatch(&g_ctx, factory_vtable[10]),
+              "CreateSwapChain dispatched through the factory vtable");
+        CHECK(static_cast<std::int32_t>(Ret()) == 0 && swapchain != 0,
+              "a mock swap chain was created");
 
         win32::SetRenderingSurface(0x1234ABCDull);
         CHECK(win32::RenderingSurface() == 0x1234ABCDull,

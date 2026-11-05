@@ -38,8 +38,8 @@ L_e485c8: ;
     { c->rip = B + 0xe485c8ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* in eax, 0xe7 */
     { c->rip = B + 0xe485caull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* jrcxz 0x140e485cc */
 L_e485cc: ;
-    { RC_SAVE(); rc->call(c, B + 0x-1b1a9647ull, B + 0xe485d1ull); RC_LOAD(); }
-    { RC_SAVE(); c->rip = B + 0x-14337947ull; rc->tail(c); return; }
+    { RC_SAVE(); rc->call(c, B + 0xffffffffe4e569b9ull, B + 0xe485d1ull); RC_LOAD(); }
+    { RC_SAVE(); c->rip = B + 0xffffffffebcc86b9ull; rc->tail(c); return; }
     { c->rip = B + 0xe485d6ull; RC_SAVE(); rc->interp(c); RC_LOAD(); } /* jrcxz 0x140e485d8 */
     RC_SAVE(); c->rip = B + 0xe4884cull; return;
 }

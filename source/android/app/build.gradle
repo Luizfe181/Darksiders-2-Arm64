@@ -6,6 +6,11 @@ android {
     namespace 'com.vigil.darksiders2'
     // 34 e a plataforma estavel de referencia; o SDK local pode ter outra.
     compileSdk 34
+    // A instalacao automatica do 34.0.0 falhou nesta maquina (ficou sem aapt);
+    // 36.0.0 esta completo e o AGP aceita-o.
+    buildToolsVersion '36.0.0'
+    // NDK instalado fora do SDK (build_apk.ps1 aponta ndk.dir para ele).
+    ndkVersion '27.2.12479018'
 
     defaultConfig {
         applicationId "com.vigil.darksiders2"
@@ -21,7 +26,22 @@ android {
 
         externalNativeBuild {
             cmake {
-                arguments "-DANDROID_STL=c++_shared", "-DANDROID_PLATFORM=android-26"
+                // SDL2_DIR vem por -PSDL2_DIR=... (build_apk.ps1); sem ele o
+                // CMake tenta third_party/SDL2 e falha com mensagem propria.
+                def sdl2 = project.findProperty('SDL2_DIR') ?: ''
+                def recompDir = project.findProperty('D2_RECOMP_DIR') ?: ''
+                def dxvkNativeDir = project.findProperty('D2_DXVK_NATIVE_DIR') ?: ''
+                def cmakeArgs = ["-DANDROID_STL=c++_shared", "-DANDROID_PLATFORM=android-26"]
+                if (sdl2) {
+                    cmakeArgs += "-DSDL2_DIR=${sdl2}".toString()
+                }
+                if (recompDir) {
+                    cmakeArgs += "-DD2_RECOMP_DIR=${recompDir}".toString()
+                }
+                if (dxvkNativeDir) {
+                    cmakeArgs += "-DD2_DXVK_NATIVE_DIR=${dxvkNativeDir}".toString()
+                }
+                arguments(*cmakeArgs)
                 cppFlags "-std=c++17"
             }
         }
