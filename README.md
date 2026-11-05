@@ -8,7 +8,7 @@ Este projeto consiste na recompilação estática (port nativo) do jogo **Darksi
 
 ## 🛠️ Estado Atual do Projeto
 
-* **Cobertura de Tradução de Instruções:** `~99.4%` traduzidas nativamente via recompilador estático.
+* **Cobertura de Tradução de Instruções:** `~99.8%` traduzidas nativamente via recompilador estático.
 * **Arquitetura Alvo:** ARM64-v8a (Android NDK / Clang).
 * **Motor Gráfico:** Vulkan (via integração direta com a camada de superfície SDL / Android).
 * **Arquitetura Base:** `rea` com pipeline automatizado em Python/C++.
