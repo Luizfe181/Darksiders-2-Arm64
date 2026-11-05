@@ -30,6 +30,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import bisect
 import json
 import struct
 import sys
@@ -75,7 +76,10 @@ CC = {"o": 0x0, "no": 0x1, "b": 0x2, "c": 0x2, "nae": 0x2, "ae": 0x3, "nb": 0x3,
       "le": 0xe, "ng": 0xe, "g": 0xf, "nle": 0xf}
 
 MASK = (1 << 64) - 1
-KNOWN_LEAF_FUNCTIONS = ((0x86C20, 0x86C6D, b"\x33\xC0\x48\x89"),)
+KNOWN_LEAF_FUNCTIONS = (
+    (0x86C20, 0x86C6D, b"\x33\xC0\x48\x89"),
+    (0xEBEBC0, 0xEBEC00, b""),  # Ponto de parada identificado no boot
+)
 
 
 # ---------------------------------------------------------------------------
@@ -149,6 +153,91 @@ def build_function_map(pe: PE) -> dict[int, int]:
         terminator = pe.read_rva(end - 1, 1)
         if code == signature and terminator == b"\xC3" and begin not in funcs:
             funcs[begin] = end
+
+    if not hasattr(pe, "sections") or not hasattr(pe, "data"):
+        return funcs
+
+    # Discover leaf functions not listed in .pdata (e.g. static initializers,
+    # C++ constructors, getters/setters called via direct calls or initterm).
+    sorted_pdata = sorted(funcs.items())
+    pdata_starts = [b for b, _ in sorted_pdata]
+
+    def is_in_pdata(rva: int) -> bool:
+        idx = bisect.bisect_right(pdata_starts, rva) - 1
+        if idx >= 0:
+            b, e = sorted_pdata[idx]
+            if b <= rva < e:
+                return True
+        return False
+
+    md = Cs(CS_ARCH_X86, CS_MODE_64)
+    md.detail = True
+
+    def find_leaf_bound(start_rva: int, max_len: int = 2048) -> int | None:
+        code = pe.read_rva(start_rva, max_len)
+        if not code:
+            return None
+        end = start_rva
+        has_insns = False
+        for insn in md.disasm(code, pe.image_base + start_rva):
+            has_insns = True
+            end = insn.address - pe.image_base + insn.size
+            if insn.mnemonic in ("ret", "ud2"):
+                return end
+            if insn.mnemonic == "jmp":
+                ops = insn.operands
+                if ops and ops[0].type == CS_OP_IMM:
+                    target = (ops[0].imm - pe.image_base) & MASK
+                    if not (start_rva <= target < end):
+                        return end
+                else:
+                    return end
+        return None
+
+    candidates: set[int] = set()
+
+    # 1. Initterm tables in .rdata
+    for start, end in [(0x12b9e48, 0x12d2870), (0x12d2878, 0x12d28a0)]:
+        off = pe.rva_to_off(start)
+        if off is not None:
+            count = (end - start) // 8
+            for i in range(count):
+                val = struct.unpack_from("<Q", pe.data, off + i * 8)[0]
+                if val:
+                    rva = val - pe.image_base
+                    if not is_in_pdata(rva):
+                        candidates.add(rva)
+
+    # 2. Direct calls from executable sections
+    for s in pe.sections:
+        if s.chars & IMAGE_SCN_MEM_EXECUTE:
+            sec_data = pe.data[s.rawptr : s.rawptr + s.rawsize]
+            for i in range(len(sec_data) - 4):
+                if sec_data[i] == 0xE8:
+                    disp = struct.unpack_from("<i", sec_data, i + 1)[0]
+                    target = s.vaddr + i + 5 + disp
+                    if s.vaddr <= target < s.vaddr + s.vsize:
+                        if not is_in_pdata(target):
+                            candidates.add(target)
+
+    # Bound candidates and sort
+    discovered: dict[int, int] = {}
+    for rva in sorted(candidates):
+        bound = find_leaf_bound(rva)
+        if bound and bound > rva:
+            discovered[rva] = bound
+
+    # Filter out overlapping sub-ranges (keep the earlier/wider function)
+    sorted_leaves = sorted(discovered.items())
+    filtered_leaves: dict[int, int] = {}
+    prev_end = 0
+    for b, e in sorted_leaves:
+        if b < prev_end:
+            continue
+        filtered_leaves[b] = e
+        prev_end = e
+
+    funcs.update(filtered_leaves)
     return funcs
 
 

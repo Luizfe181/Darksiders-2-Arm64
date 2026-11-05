@@ -2373,6 +2373,9 @@ void Stub_crtSetUnhandledExceptionFilter(CpuContext *c) {
     SetRet(c, g_unhandled_exception_filter.exchange(Arg0(c)));
 }
 void Stub_configthreadlocale(CpuContext *c) { SetRet(c, 0); }
+static std::uint64_t g_dummy_locale = 0x10CAFE001ull;
+void Stub_create_locale(CpuContext *c) { SetRet(c, reinterpret_cast<std::uint64_t>(&g_dummy_locale)); }
+void Stub_free_locale(CpuContext *c) { SetRet(c, 0); }
 void Stub_setusermatherr(CpuContext *c) { SetRet(c, 0); }
 void Stub_amsg_exit(CpuContext *c) { SetRet(c, 0); }
 void Stub_cexit(CpuContext *c) { SetRet(c, 0); }
@@ -2696,6 +2699,8 @@ void RegisterBuiltins() {
             {"msvcr120.dll", "__getmainargs", Stub_getmainargs},
             {"msvcr120.dll", "__set_app_type", Stub_set_app_type},
             {"msvcr120.dll", "_configthreadlocale", Stub_configthreadlocale},
+            {"msvcr120.dll", "_create_locale", Stub_create_locale},
+            {"msvcr120.dll", "_free_locale", Stub_free_locale},
             {"msvcr120.dll", "__setusermatherr", Stub_setusermatherr},
             {"msvcr120.dll", "_amsg_exit", Stub_amsg_exit},
             {"msvcr120.dll", "_cexit", Stub_cexit},
