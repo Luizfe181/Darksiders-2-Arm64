@@ -29,7 +29,6 @@
 #include <vector>
 
 #include <dirent.h>
-#include <dlfcn.h>
 #include <fcntl.h>
 #include <pthread.h>
 #include <sys/mman.h>
@@ -77,21 +76,6 @@ inline std::uint64_t Arg5(CpuContext *c) {
 }
 inline std::uint64_t Arg6(CpuContext *c) {
     return recomp::GuestLoad<std::uint64_t>(c->r[recomp::RSP] + 0x38);
-}
-inline std::uint64_t Arg7(CpuContext *c) {
-    return recomp::GuestLoad<std::uint64_t>(c->r[recomp::RSP] + 0x40);
-}
-inline std::uint64_t Arg8(CpuContext *c) {
-    return recomp::GuestLoad<std::uint64_t>(c->r[recomp::RSP] + 0x48);
-}
-inline std::uint64_t Arg9(CpuContext *c) {
-    return recomp::GuestLoad<std::uint64_t>(c->r[recomp::RSP] + 0x50);
-}
-inline std::uint64_t Arg10(CpuContext *c) {
-    return recomp::GuestLoad<std::uint64_t>(c->r[recomp::RSP] + 0x58);
-}
-inline std::uint64_t Arg11(CpuContext *c) {
-    return recomp::GuestLoad<std::uint64_t>(c->r[recomp::RSP] + 0x60);
 }
 inline void SetRet(CpuContext *c, std::uint64_t v) { c->r[recomp::RAX] = v; }
 // HRESULT is 32 bits; the guest reads EAX, so sign-extend for clarity.
@@ -1141,98 +1125,8 @@ std::uint32_t Impl_SetEndOfFile(std::uint64_t handle) {
 }
 
 // ---------------------------------------------------------------------------
-// D3D11 / DXGI mock objects -- COM tracing
-//
-// The guest reaches D3D11 through COM vtables: its `call [rax + 8*n]` becomes
-// rc->call(c, target, ret), so every vtable slot has to be a thunk in the same
-// synthetic space as an import. That is what makes the calls traceable without
-// a host function pointer ever reaching the guest.
-//
-// Win64 COM arguments: `this` in RCX, then RDX, R8, R9, then the stack. Every
-// helper below is shifted by one relative to the free-function stubs.
-//
-// The mocks return S_OK so the engine keeps walking its boot sequence: the point
-// is to learn which methods it calls, not to render.
-// ---------------------------------------------------------------------------
+// D3D9 thunk allocation shares the import thunk table.
 namespace com {
-
-constexpr std::size_t kDevice = 0;
-constexpr std::size_t kContext = 1;
-constexpr std::size_t kSwapChain = 2;
-constexpr std::size_t kFactory = 3;
-constexpr std::size_t kTexture = 4;
-constexpr std::size_t kInterfaceCount = 5;
-
-struct NamedSlot {
-    std::size_t index;
-    const char *name;
-};
-
-// Only the indices that are certain are named; the rest report as Method_<n>.
-// A wrong name would be worse than none when the goal is to learn the API.
-constexpr NamedSlot kDeviceNames[] = {
-    {0, "QueryInterface"}, {1, "AddRef"}, {2, "Release"},
-    {3, "CreateBuffer"}, {5, "CreateTexture2D"}, {7, "CreateShaderResourceView"},
-    {9, "CreateRenderTargetView"}, {10, "CreateDepthStencilView"},
-    {11, "CreateInputLayout"}, {12, "CreateVertexShader"}, {15, "CreatePixelShader"},
-    {20, "CreateBlendState"}, {21, "CreateDepthStencilState"},
-    {22, "CreateRasterizerState"}, {23, "CreateSamplerState"},
-    {29, "CheckFormatSupport"}, {33, "CheckFeatureSupport"},
-    {37, "GetFeatureLevel"}, {40, "GetImmediateContext"},
-};
-
-constexpr NamedSlot kContextNames[] = {
-    {0, "QueryInterface"}, {1, "AddRef"}, {2, "Release"}, {3, "GetDevice"},
-    {13, "DrawIndexed"}, {14, "Draw"}, {15, "Map"}, {16, "Unmap"},
-};
-
-constexpr NamedSlot kSwapChainNames[] = {
-    {0, "QueryInterface"}, {1, "AddRef"}, {2, "Release"},
-    {3, "SetPrivateData"}, {4, "SetPrivateDataInterface"}, {5, "GetPrivateData"},
-    {6, "GetParent"}, {7, "GetDevice"}, {8, "Present"}, {9, "GetBuffer"},
-    {10, "SetFullscreenState"}, {11, "GetFullscreenState"}, {12, "GetDesc"},
-    {13, "ResizeBuffers"}, {14, "ResizeTarget"},
-};
-
-constexpr NamedSlot kFactoryNames[] = {
-    {0, "QueryInterface"}, {1, "AddRef"}, {2, "Release"},
-    {7, "EnumAdapters"}, {10, "CreateSwapChain"}, {11, "CreateSoftwareAdapter"},
-};
-
-constexpr NamedSlot kTextureNames[] = {
-    {0, "QueryInterface"}, {1, "AddRef"}, {2, "Release"},
-};
-
-struct InterfaceDef {
-    const char *name;
-    std::size_t slots;
-    const NamedSlot *names;
-    std::size_t name_count;
-    std::vector<std::uint64_t> vtable;
-};
-
-InterfaceDef g_interfaces[kInterfaceCount] = {
-    {"ID3D11Device", 44, kDeviceNames,
-     sizeof(kDeviceNames) / sizeof(kDeviceNames[0]), {}},
-    {"ID3D11DeviceContext", 112, kContextNames,
-     sizeof(kContextNames) / sizeof(kContextNames[0]), {}},
-    {"IDXGISwapChain", 20, kSwapChainNames,
-     sizeof(kSwapChainNames) / sizeof(kSwapChainNames[0]), {}},
-    {"IDXGIFactory", 14, kFactoryNames,
-     sizeof(kFactoryNames) / sizeof(kFactoryNames[0]), {}},
-    {"ID3D11Texture2D", 14, kTextureNames,
-     sizeof(kTextureNames) / sizeof(kTextureNames[0]), {}},
-};
-
-// A mock object the guest can dereference: first field is the vtable pointer.
-struct MockObject {
-    std::uint64_t *vtable;
-    std::uint32_t refcount;
-    std::uint32_t kind;
-};
-
-std::once_flag g_com_once;
-bool g_com_enabled = true;
 
 std::uint64_t AllocThunk(const char *owner, const char *name, StubFn fn) {
     std::lock_guard<std::mutex> lock(g_registry_mutex);
@@ -1246,301 +1140,15 @@ std::uint64_t AllocThunk(const char *owner, const char *name, StubFn fn) {
     return thunk;
 }
 
-std::uint64_t NewObject(std::size_t kind) {
-    auto *object = new MockObject{g_interfaces[kind].vtable.data(), 1,
-                                  static_cast<std::uint32_t>(kind)};
-    return reinterpret_cast<std::uint64_t>(object);
-}
-
-bool Enabled() { return g_com_enabled; }
-
-// COM argument access: `this` occupies RCX.
-inline std::uint64_t This(CpuContext *c) { return c->r[recomp::RCX]; }
-inline std::uint64_t ComArg0(CpuContext *c) { return c->r[recomp::RDX]; }
-inline std::uint64_t ComArg1(CpuContext *c) { return c->r[recomp::R8]; }
-inline std::uint64_t ComArg2(CpuContext *c) { return c->r[recomp::R9]; }
-inline std::uint64_t ComArg3(CpuContext *c) {
-    return recomp::GuestLoad<std::uint64_t>(c->r[recomp::RSP] + 0x28);
-}
-
-void Stub_ComMethod(CpuContext *c);
-
-void Init();
-
 }  // namespace com
+
+std::atomic<std::uint64_t> g_sdl_window{0};
 
 #if defined(D2_HAS_DXVK_D3D9)
 void Stub_D3D9Create(CpuContext *c);
 #endif
 
-// ---------------------------------------------------------------------------
-// D3D11 / DXGI -- forwarded to DXVK 1.10.3
-//
-// DXVK is not vendored here: it is a large C++ project with its own build. Its
-// d3d11 entry points are looked up in libdxvk_d3d11.so at run time, so a build
-// of it can be dropped in without relinking this library. With nothing loaded
-// the calls fail with E_FAIL -- what the engine already handles -- instead of
-// crashing.
-//
-// Argument widths: the guest is Win64, so a 32-bit argument arrives in the low
-// half of a 64-bit register. Declaring the forwards with std::uint32_t/uint64_t
-// keeps the register layout identical; HRESULT is modelled as int32_t because
-// Windows' long is 32-bit while Android's is not.
-// ---------------------------------------------------------------------------
-std::mutex g_dxvk_mutex;
-void *g_dxvk_lib = nullptr;
-std::atomic<std::uint64_t> g_vk_surface{0};
-std::atomic<std::uint64_t> g_sdl_window{0};
-std::atomic<bool> g_dxvk_missing_logged{false};
-
-using PfnD3D11CreateDevice = std::int32_t (*)(void *, std::uint32_t, void *, std::uint32_t,
-                                              const std::int32_t *, std::uint32_t, std::uint32_t,
-                                              void **, std::int32_t *, void **);
-using PfnD3D11CreateDeviceAndSwapChain = std::int32_t (*)(
-    void *, std::uint32_t, void *, std::uint32_t, const std::int32_t *, std::uint32_t,
-    std::uint32_t, const void *, void **, void **, std::int32_t *, void **);
-using PfnCreateDXGIFactory = std::int32_t (*)(const void *, void **);
-// Added by patches/0001-android-external-surface.patch in third_party/dxvk.
-using PfnDxvkSetSurface = void (*)(std::uint64_t);
-
-struct DxvkApi {
-    PfnD3D11CreateDevice create_device = nullptr;
-    PfnD3D11CreateDeviceAndSwapChain create_device_swapchain = nullptr;
-    PfnCreateDXGIFactory create_factory = nullptr;
-    PfnDxvkSetSurface set_surface = nullptr;
-};
-DxvkApi g_dxvk;
-
-void LogDxvkMissing() {
-    bool expected = false;
-    if (g_dxvk_missing_logged.compare_exchange_strong(expected, true)) {
-        Log("[win32] D3D11/DXGI chamado sem DXVK: a devolver E_FAIL. "
-            "Coloque libdxvk_d3d11.so ou defina D2_DXVK.");
-    }
-}
-
-template <typename T>
-inline T *GuestPtr(std::uint64_t value) {
-    return reinterpret_cast<T *>(static_cast<std::uintptr_t>(value));
-}
-
-std::int32_t Impl_D3D11CreateDevice(std::uint64_t adapter, std::uint32_t driver_type,
-                                    std::uint64_t software, std::uint32_t flags,
-                                    std::uint64_t feature_levels, std::uint32_t num_levels,
-                                    std::uint32_t sdk_version, std::uint64_t device_out,
-                                    std::uint64_t feature_level_out, std::uint64_t context_out) {
-    com::Init();
-    if (g_dxvk.create_device != nullptr) {
-        return g_dxvk.create_device(
-            GuestPtr<void>(adapter), driver_type, GuestPtr<void>(software), flags,
-            GuestPtr<const std::int32_t>(feature_levels), num_levels, sdk_version,
-            GuestPtr<void *>(device_out), GuestPtr<std::int32_t>(feature_level_out),
-            GuestPtr<void *>(context_out));
-    }
-    if (com::Enabled()) {
-        // Tracing mode: hand the engine objects that log every method it calls.
-        const std::uint64_t device = com::NewObject(com::kDevice);
-        const std::uint64_t context = com::NewObject(com::kContext);
-        if (device_out != 0) recomp::GuestStore<std::uint64_t>(device_out, device);
-        if (feature_level_out != 0) {
-            recomp::GuestStore<std::uint32_t>(feature_level_out, 0xB000u);  // 11_0
-        }
-        if (context_out != 0) recomp::GuestStore<std::uint64_t>(context_out, context);
-        Log("[COM] D3D11CreateDevice -> mock device=0x%llx context=0x%llx (S_OK)",
-            static_cast<unsigned long long>(device),
-            static_cast<unsigned long long>(context));
-        return 0;
-    }
-    LogDxvkMissing();
-    return kD3dErrFail;
-}
-
-std::int32_t Impl_D3D11CreateDeviceAndSwapChain(
-    std::uint64_t adapter, std::uint32_t driver_type, std::uint64_t software, std::uint32_t flags,
-    std::uint64_t feature_levels, std::uint32_t num_levels, std::uint32_t sdk_version,
-    std::uint64_t swapchain_desc, std::uint64_t swapchain_out, std::uint64_t device_out,
-    std::uint64_t feature_level_out, std::uint64_t context_out) {
-    com::Init();
-    if (g_dxvk.create_device_swapchain != nullptr) {
-        return g_dxvk.create_device_swapchain(
-            GuestPtr<void>(adapter), driver_type, GuestPtr<void>(software), flags,
-            GuestPtr<const std::int32_t>(feature_levels), num_levels, sdk_version,
-            GuestPtr<const void>(swapchain_desc), GuestPtr<void *>(swapchain_out),
-            GuestPtr<void *>(device_out), GuestPtr<std::int32_t>(feature_level_out),
-            GuestPtr<void *>(context_out));
-    }
-    if (com::Enabled()) {
-        const std::uint64_t device = com::NewObject(com::kDevice);
-        const std::uint64_t context = com::NewObject(com::kContext);
-        const std::uint64_t swapchain = com::NewObject(com::kSwapChain);
-        if (swapchain_out != 0) recomp::GuestStore<std::uint64_t>(swapchain_out, swapchain);
-        if (device_out != 0) recomp::GuestStore<std::uint64_t>(device_out, device);
-        if (feature_level_out != 0) {
-            recomp::GuestStore<std::uint32_t>(feature_level_out, 0xB000u);
-        }
-        if (context_out != 0) recomp::GuestStore<std::uint64_t>(context_out, context);
-        Log("[COM] D3D11CreateDeviceAndSwapChain -> mock device=0x%llx context=0x%llx "
-            "swapchain=0x%llx (S_OK)",
-            static_cast<unsigned long long>(device), static_cast<unsigned long long>(context),
-            static_cast<unsigned long long>(swapchain));
-        return 0;
-    }
-    LogDxvkMissing();
-    return kD3dErrFail;
-}
-
-std::int32_t Impl_CreateDXGIFactory(std::uint64_t riid, std::uint64_t factory_out) {
-    com::Init();
-    if (g_dxvk.create_factory != nullptr) {
-        return g_dxvk.create_factory(GuestPtr<const void>(riid), GuestPtr<void *>(factory_out));
-    }
-    if (com::Enabled()) {
-        if (factory_out != 0) {
-            recomp::GuestStore<std::uint64_t>(factory_out, com::NewObject(com::kFactory));
-        }
-        Log("[COM] CreateDXGIFactory -> mock IDXGIFactory");
-        return 0;  // S_OK
-    }
-    LogDxvkMissing();
-    return kD3dErrFail;
-}
-
-// ---------------------------------------------------------------------------
-// COM mock dispatch
-// ---------------------------------------------------------------------------
-namespace com {
-
-void Stub_ComMethod(CpuContext *c) {
-    const std::uint64_t thunk = g_active_thunk;
-    const std::size_t slot = (thunk - kThunkBase) / kThunkStride;
-    const char *owner = g_slot_owner[slot].empty() ? "COM" : g_slot_owner[slot].c_str();
-    const char *name = g_slot_name[slot].empty() ? "Method" : g_slot_name[slot].c_str();
-    const std::uint64_t self = This(c);
-
-    Log("[COM TRACE] %s::%s this=0x%llx a0=0x%llx a1=0x%llx a2=0x%llx a3=0x%llx", owner,
-        name, static_cast<unsigned long long>(self),
-        static_cast<unsigned long long>(ComArg0(c)),
-        static_cast<unsigned long long>(ComArg1(c)),
-        static_cast<unsigned long long>(ComArg2(c)),
-        static_cast<unsigned long long>(ComArg3(c)));
-
-    auto *object = reinterpret_cast<MockObject *>(self);
-    const bool valid = object != nullptr && object->vtable != nullptr &&
-                       object->kind < kInterfaceCount &&
-                       object->vtable == g_interfaces[object->kind].vtable.data();
-
-    if (std::strcmp(name, "AddRef") == 0) {
-        if (valid) ++object->refcount;
-        SetRet(c, valid ? object->refcount : 1);
-        return;
-    }
-    if (std::strcmp(name, "Release") == 0) {
-        if (valid && object->refcount > 0) --object->refcount;
-        SetRet(c, valid ? object->refcount : 0);
-        return;
-    }
-    if (std::strcmp(name, "QueryInterface") == 0) {
-        if (ComArg0(c) != 0) recomp::GuestStore<std::uint64_t>(ComArg0(c), self);
-        SetRet32(c, 0);
-        return;
-    }
-    if (std::strcmp(name, "GetFeatureLevel") == 0) {
-        SetRet(c, 0xB000);  // D3D_FEATURE_LEVEL_11_0
-        return;
-    }
-    if (std::strcmp(name, "GetDevice") == 0) {
-        if (ComArg0(c) != 0) {
-            recomp::GuestStore<std::uint64_t>(ComArg0(c), NewObject(kDevice));
-        }
-        SetRet32(c, 0);
-        return;
-    }
-    if (std::strcmp(name, "GetImmediateContext") == 0) {
-        if (ComArg0(c) != 0) {
-            recomp::GuestStore<std::uint64_t>(ComArg0(c), NewObject(kContext));
-        }
-        SetRet32(c, 0);
-        return;
-    }
-    if (std::strcmp(name, "GetParent") == 0) {
-        if (ComArg0(c) != 0) {
-            recomp::GuestStore<std::uint64_t>(ComArg0(c), NewObject(kFactory));
-        }
-        SetRet32(c, 0);
-        return;
-    }
-    if (std::strcmp(name, "CreateSwapChain") == 0) {
-        // (pDevice, pDesc, ppSwapChain): out is the R9 argument.
-        if (ComArg2(c) != 0) {
-            recomp::GuestStore<std::uint64_t>(ComArg2(c), NewObject(kSwapChain));
-        }
-        SetRet32(c, 0);
-        return;
-    }
-    if (std::strcmp(name, "CreateSwapChainForHwnd") == 0 ||
-        std::strcmp(name, "CreateSwapChainForComposition") == 0) {
-        // Six arguments before the out-pointer, so it is the 3rd stack slot.
-        const std::uint64_t out = recomp::GuestLoad<std::uint64_t>(c->r[recomp::RSP] + 0x38);
-        if (out != 0) recomp::GuestStore<std::uint64_t>(out, NewObject(kSwapChain));
-        SetRet32(c, 0);
-        return;
-    }
-    if (std::strcmp(name, "GetBuffer") == 0) {
-        // (UINT Buffer, REFIID riid, void **ppSurface): out is the R8 argument.
-        if (ComArg1(c) != 0) {
-            recomp::GuestStore<std::uint64_t>(ComArg1(c), NewObject(kTexture));
-        }
-        SetRet32(c, 0);
-        return;
-    }
-    if (std::strcmp(name, "GetDesc") == 0) {
-        if (ComArg0(c) != 0) {
-            const unsigned char zero[0x40] = {};
-            GuestWrite(ComArg0(c), zero, sizeof(zero));
-        }
-        SetRet32(c, 0);
-        return;
-    }
-
-    SetRet32(c, 0);  // S_OK: keep the engine walking its boot sequence
-}
-
-void Init() {
-    std::call_once(g_com_once, [] {
-        if (const char *env = std::getenv("D2_NO_COM_MOCK")) {
-            g_com_enabled = !(env[0] == '1' && env[1] == '\0');
-        }
-        std::size_t total = 0;
-        for (std::size_t i = 0; i < kInterfaceCount; ++i) {
-            InterfaceDef &def = g_interfaces[i];
-            def.vtable.resize(def.slots);
-            for (std::size_t slot = 0; slot < def.slots; ++slot) {
-                const char *method = nullptr;
-                for (std::size_t n = 0; n < def.name_count; ++n) {
-                    if (def.names[n].index == slot) {
-                        method = def.names[n].name;
-                        break;
-                    }
-                }
-                if (method == nullptr) {
-                    static char generated[kInterfaceCount][128][24];
-                    std::snprintf(generated[i][slot], sizeof(generated[i][0]), "Method_%zu",
-                                  slot);
-                    method = generated[i][slot];
-                }
-                def.vtable[slot] = AllocThunk(def.name, method, Stub_ComMethod);
-                ++total;
-            }
-        }
-        Log("[COM] %zu slots de vtable de teste construidos (trace %s)", total,
-            g_com_enabled ? "ON" : "OFF");
-    });
-}
-
-}  // namespace com
-
 #if defined(D2_HAS_DXVK_D3D9)
-
 enum D3D9Interface : std::uint32_t { kD3d9 = 1, kD3d9Device = 2, kD3d9Surface = 3 };
 
 struct D3D9Proxy {
@@ -2236,25 +1844,6 @@ void Stub_DeleteFileW(CpuContext *c) {
 }
 void Stub_SetEndOfFile(CpuContext *c) { SetRet(c, Impl_SetEndOfFile(Arg0(c))); }
 
-// ---- D3D11 / DXGI ----
-void Stub_D3D11CreateDevice(CpuContext *c) {
-    SetRet32(c, Impl_D3D11CreateDevice(
-                    Arg0(c), static_cast<std::uint32_t>(Arg1(c)), Arg2(c),
-                    static_cast<std::uint32_t>(Arg3(c)), Arg4(c),
-                    static_cast<std::uint32_t>(Arg5(c)), static_cast<std::uint32_t>(Arg6(c)),
-                    Arg7(c), Arg8(c), Arg9(c)));
-}
-void Stub_D3D11CreateDeviceAndSwapChain(CpuContext *c) {
-    SetRet32(c, Impl_D3D11CreateDeviceAndSwapChain(
-                    Arg0(c), static_cast<std::uint32_t>(Arg1(c)), Arg2(c),
-                    static_cast<std::uint32_t>(Arg3(c)), Arg4(c),
-                    static_cast<std::uint32_t>(Arg5(c)), static_cast<std::uint32_t>(Arg6(c)),
-                    Arg7(c), Arg8(c), Arg9(c), Arg10(c), Arg11(c)));
-}
-void Stub_CreateDXGIFactory(CpuContext *c) {
-    SetRet32(c, Impl_CreateDXGIFactory(Arg0(c), Arg1(c)));
-}
-
 void Stub_OrdinalSuccess(CpuContext *c) {
     const std::uint64_t index = (g_active_thunk - kThunkBase) / kThunkStride;
     const char *name = index < kMaxStubs ? g_slot_name[index].c_str() : "";
@@ -2938,96 +2527,6 @@ void SetDataRoot(const char *root) {
 std::string GetDataRoot() { return EffectiveRoot(); }
 
 // ---------------------------------------------------------------------------
-// D3D11 / DXGI loading and the rendering surface handoff
-// ---------------------------------------------------------------------------
-namespace {
-
-template <typename Fn>
-Fn DxvkSymbol(void *library, const char *name) {
-    void *symbol = ::dlsym(library, name);
-    Fn fn = nullptr;
-    if (symbol != nullptr) std::memcpy(&fn, &symbol, sizeof(fn));
-    return fn;
-}
-
-}  // namespace
-
-bool LoadDxvk(const char *library_path) {
-    std::lock_guard<std::mutex> lock(g_dxvk_mutex);
-    if (g_dxvk_lib != nullptr) return true;
-
-    std::vector<const char *> candidates;
-    if (library_path != nullptr && library_path[0] != '\0') candidates.push_back(library_path);
-    if (const char *env = std::getenv("D2_DXVK")) {
-        if (env[0] != '\0') candidates.push_back(env);
-    }
-#ifdef D2_DXVK_D3D11_SO
-    candidates.push_back(D2_DXVK_D3D11_SO);
-#endif
-    candidates.push_back("libdxvk_d3d11.so");
-    candidates.push_back("/data/data/com.vigil.darksiders2/files/libdxvk_d3d11.so");
-
-    for (const char *path : candidates) {
-        void *library = ::dlopen(path, RTLD_NOW | RTLD_LOCAL);
-        if (library == nullptr) continue;
-
-        auto create = DxvkSymbol<PfnD3D11CreateDevice>(library, "D3D11CreateDevice");
-        auto create_swapchain =
-            DxvkSymbol<PfnD3D11CreateDeviceAndSwapChain>(library,
-                                                         "D3D11CreateDeviceAndSwapChain");
-        auto factory = DxvkSymbol<PfnCreateDXGIFactory>(library, "CreateDXGIFactory");
-        if (create == nullptr && create_swapchain == nullptr && factory == nullptr) {
-            Log("[win32] %s nao expoe D3D11CreateDevice/CreateDXGIFactory; ignorado.", path);
-            ::dlclose(library);
-            continue;
-        }
-
-        g_dxvk.create_device = create;
-        g_dxvk.create_device_swapchain = create_swapchain;
-        g_dxvk.create_factory = factory;
-        g_dxvk.set_surface =
-            DxvkSymbol<PfnDxvkSetSurface>(library, "dxvk_android_set_surface");
-        g_dxvk_lib = library;
-
-        // Hand the host's surface over. Without the patched DXVK this symbol is
-        // absent and the patched build would fall back to a Win32 surface, which
-        // does not exist here.
-        if (g_dxvk.set_surface != nullptr) {
-            g_dxvk.set_surface(g_vk_surface.load());
-            Log("[win32] DXVK: surface 0x%llx entregue a dxvk_android_set_surface",
-                static_cast<unsigned long long>(g_vk_surface.load()));
-        } else {
-            Log("[win32] DXVK carregado, mas sem dxvk_android_set_surface: "
-                "a surface do host nao sera usada.");
-        }
-
-        Log("[win32] DXVK carregado de %s (surface 0x%llx)", path,
-            static_cast<unsigned long long>(g_vk_surface.load()));
-        return true;
-    }
-    return false;
-}
-
-bool IsDxvkLoaded() {
-    std::lock_guard<std::mutex> lock(g_dxvk_mutex);
-    return g_dxvk_lib != nullptr;
-}
-
-void SetRenderingSurface(std::uint64_t vk_surface) {
-    g_vk_surface.store(vk_surface);
-
-    // If DXVK is already loaded, tell it now; if it loads later, LoadDxvk()
-    // pushes the value at that point.
-    PfnDxvkSetSurface setter = nullptr;
-    {
-        std::lock_guard<std::mutex> lock(g_dxvk_mutex);
-        setter = g_dxvk.set_surface;
-    }
-    if (setter != nullptr) setter(vk_surface);
-}
-
-std::uint64_t RenderingSurface() { return g_vk_surface.load(); }
-
 void SetRenderingWindow(std::uint64_t sdl_window) {
     g_sdl_window.store(sdl_window);
 }
@@ -3126,10 +2625,6 @@ void RegisterBuiltins() {
             {"kernel32.dll", "DeleteFileA", Stub_DeleteFileA},
             {"kernel32.dll", "DeleteFileW", Stub_DeleteFileW},
             {"kernel32.dll", "SetEndOfFile", Stub_SetEndOfFile},
-            {"d3d11.dll", "D3D11CreateDevice", Stub_D3D11CreateDevice},
-            {"d3d11.dll", "D3D11CreateDeviceAndSwapChain", Stub_D3D11CreateDeviceAndSwapChain},
-            {"dxgi.dll", "CreateDXGIFactory", Stub_CreateDXGIFactory},
-            {"dxgi.dll", "CreateDXGIFactory1", Stub_CreateDXGIFactory},
 #if defined(D2_HAS_DXVK_D3D9)
             {"d3d9.dll", "Direct3DCreate9", Stub_D3D9Create},
 #endif

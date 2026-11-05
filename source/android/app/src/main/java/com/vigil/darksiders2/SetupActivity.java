@@ -40,17 +40,14 @@ public class SetupActivity extends Activity {
     private static final int REQ_FOLDER = 1;
     private static final int REQ_DRIVER = 2;
     private static final int REQ_STORAGE = 3;
-    private static final int REQ_DXVK = 4;
 
     private static final String PREFS = "d2setup";
     private static final String KEY_PATH = "data_root";
     private static final String KEY_DRIVER = "driver";
-    private static final String KEY_DXVK = "dxvk";
     private static final String DRIVER_FILE = "libvulkan_custom.so";
-    private static final String DXVK_FILE = "libdxvk_d3d11.so";
 
     private SharedPreferences prefs;
-    private TextView pathText, pathStatus, driverText, driverStatus, dxvkText, dxvkStatus, overall;
+    private TextView pathText, pathStatus, driverText, driverStatus, overall;
     private Button startButton;
 
     @Override
@@ -63,8 +60,6 @@ public class SetupActivity extends Activity {
         pathStatus = findViewById(R.id.pathStatus);
         driverText = findViewById(R.id.driverText);
         driverStatus = findViewById(R.id.driverStatus);
-        dxvkText = findViewById(R.id.dxvkText);
-        dxvkStatus = findViewById(R.id.dxvkStatus);
         overall = findViewById(R.id.overall);
         startButton = findViewById(R.id.startButton);
 
@@ -74,13 +69,6 @@ public class SetupActivity extends Activity {
             File driver = new File(new File(getFilesDir(), "drivers"), DRIVER_FILE);
             if (driver.exists()) driver.delete();
             prefs.edit().remove(KEY_DRIVER).apply();
-            refresh();
-        });
-        findViewById(R.id.pickDxvk).setOnClickListener(v -> pickFile(REQ_DXVK));
-        findViewById(R.id.clearDxvk).setOnClickListener(v -> {
-            File dxvk = new File(new File(getFilesDir(), "dxvk"), DXVK_FILE);
-            if (dxvk.exists()) dxvk.delete();
-            prefs.edit().remove(KEY_DXVK).apply();
             refresh();
         });
         startButton.setOnClickListener(v -> startGame());
@@ -116,7 +104,7 @@ public class SetupActivity extends Activity {
         pickFile(REQ_DRIVER);
     }
 
-    /** Shared file picker for the driver and for DXVK. */
+    /** File picker for a Vulkan driver. */
     private void pickFile(int request) {
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
@@ -151,39 +139,6 @@ public class SetupActivity extends Activity {
 
         prefs.edit().putString(KEY_DRIVER, target.getAbsolutePath()).apply();
         toast("Driver instalado: " + target.getName());
-        refresh();
-    }
-
-    private void copyDxvk(Uri uri) {
-        File source = obtainSource(uri, Archive.Kind.DXVK);
-        if (source == null) return;
-
-        File dir = new File(getFilesDir(), "dxvk");
-        if (!dir.exists() && !dir.mkdirs()) {
-            toast("Nao foi possivel criar " + dir);
-            return;
-        }
-        File target = new File(dir, DXVK_FILE);
-        if (!copyFile(source, target)) return;
-
-        String pe = peDescription(target);
-        String arch = elfArch(target);
-        if (!"arm64".equals(arch)) {
-            target.delete();
-            if (pe != null) {
-                toast(pe + ": e um binario do Windows. Este port nao usa Wine — precisa de um "
-                        + "libdxvk_d3d11.so ELF arm64.");
-            } else if (arch == null) {
-                toast("O ficheiro nao e uma biblioteca ELF.");
-            } else {
-                toast("DXVK " + arch + ": este port e arm64-v8a.");
-            }
-            refresh();
-            return;
-        }
-
-        prefs.edit().putString(KEY_DXVK, target.getAbsolutePath()).apply();
-        toast("DXVK instalado: " + target.getName());
         refresh();
     }
 
@@ -277,32 +232,6 @@ public class SetupActivity extends Activity {
         }
     }
 
-    /** "PE x86-64" / "PE ARM64" / ... from the PE header, or null if not a PE. */
-    private static String peDescription(File file) {
-        try (RandomAccessFile raf = new RandomAccessFile(file, "r")) {
-            byte[] dos = new byte[64];
-            raf.readFully(dos);
-            if (dos[0] != 'M' || dos[1] != 'Z') return null;
-            int peOffset = (dos[0x3C] & 0xFF) | ((dos[0x3D] & 0xFF) << 8)
-                    | ((dos[0x3E] & 0xFF) << 16) | ((dos[0x3F] & 0xFF) << 24);
-            raf.seek(peOffset);
-            byte[] header = new byte[6];
-            raf.readFully(header);
-            if (header[0] != 'P' || header[1] != 'E' || header[2] != 0 || header[3] != 0) {
-                return "PE";
-            }
-            int machine = (header[4] & 0xFF) | ((header[5] & 0xFF) << 8);
-            switch (machine) {
-                case 0x8664: return "PE x86-64";
-                case 0xAA64: return "PE ARM64";
-                case 0x014C: return "PE i386";
-                default: return "PE machine 0x" + Integer.toHexString(machine);
-            }
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
     // ---- state ------------------------------------------------------------
 
     private void refresh() {
@@ -340,23 +269,6 @@ public class SetupActivity extends Activity {
         overall.setText(ready ? ""
                 : "Escolha a pasta que contem media/media.upak para poder iniciar.");
 
-        // DXVK: user-installed first, then whatever was packaged into the APK.
-        final String userDxvk = prefs.getString(KEY_DXVK, null);
-        final File packaged = new File(getApplicationInfo().nativeLibraryDir, "libdxvk_d3d11.so");
-        if (userDxvk != null) {
-            File file = new File(userDxvk);
-            dxvkText.setText(file.getName());
-            dxvkStatus.setText("DXVK fornecido pelo utilizador (" + (file.length() / 1024) + " KB).");
-            dxvkStatus.setTextColor(0xFF81C995);
-        } else if (packaged.isFile()) {
-            dxvkText.setText("empacotado no APK");
-            dxvkStatus.setText("DXVK incluido no build (" + (packaged.length() / 1024) + " KB).");
-            dxvkStatus.setTextColor(0xFF81C995);
-        } else {
-            dxvkText.setText(R.string.setup_dxvk_none);
-            dxvkStatus.setText("Sem DXVK: as chamadas D3D11 nao serao atendidas.");
-            dxvkStatus.setTextColor(0xFFF28B82);
-        }
     }
 
     private void startGame() {
@@ -365,18 +277,17 @@ public class SetupActivity extends Activity {
             refresh();
             return;
         }
-        writeConfig(path, prefs.getString(KEY_DRIVER, null), prefs.getString(KEY_DXVK, null));
+        writeConfig(path, prefs.getString(KEY_DRIVER, null));
         startActivity(new Intent(this, Darksiders2Activity.class));
     }
 
     /** The file the native side reads: getFilesDir()/config.ini. */
-    private void writeConfig(String dataRoot, String driver, String dxvk) {
+    private void writeConfig(String dataRoot, String driver) {
         File ini = new File(getFilesDir(), "config.ini");
         StringBuilder text = new StringBuilder();
         text.append("; gerado pela tela de configuracao\n");
         text.append("data_root=").append(dataRoot).append('\n');
         if (driver != null) text.append("custom_driver=").append(driver).append('\n');
-        if (dxvk != null) text.append("dxvk_library=").append(dxvk).append('\n');
         try (FileWriter writer = new FileWriter(ini, false)) {
             writer.write(text.toString());
         } catch (Exception e) {
@@ -420,8 +331,6 @@ public class SetupActivity extends Activity {
             refresh();
         } else if (request == REQ_DRIVER && data.getData() != null) {
             copyDriver(data.getData());
-        } else if (request == REQ_DXVK && data.getData() != null) {
-            copyDxvk(data.getData());
         }
     }
 

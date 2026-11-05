@@ -69,31 +69,29 @@ if (-not $SkipNative) {
     if ($Sdl2Dir) { $cmakeArgs += "-DSDL2_DIR=$Sdl2Dir" }
     if ($DxvkNativeDir) { $cmakeArgs += "-DD2_DXVK_NATIVE_DIR=$DxvkNativeDir" }
     $cmakeArgs += "-DD2_RECOMP_DIR=$RecompDir"
-    & $cmake @cmakeArgs 2>&1 | Select-Object -Last 3
-    if ($LASTEXITCODE -ne 0) {
+    $previousPreference = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        & $cmake @cmakeArgs 2>&1 | Select-Object -Last 3
+        $configureExitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previousPreference
+    }
+    if ($configureExitCode -ne 0) {
         Write-Host "[i] Configure falhou: SDL2 tem de estar instalado ou vendorizado." -ForegroundColor Yellow
         Write-Host "    Passe -Sdl2Dir <dir com SDL2Config.cmake> ou coloque o SDL2 em" -ForegroundColor Yellow
         Write-Host "    source/android/third_party/SDL2 (o CMake prefere essa via)." -ForegroundColor Yellow
         Fail "CMake configure falhou"
     }
-    & $cmake --build $build 2>&1 | Select-Object -Last 4
-    if ($LASTEXITCODE -ne 0) { Fail "CMake build falhou" }
+    $ErrorActionPreference = 'Continue'
+    try {
+        & $cmake --build $build 2>&1 | Select-Object -Last 4
+        $buildExitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previousPreference
+    }
+    if ($buildExitCode -ne 0) { Fail "CMake build falhou" }
     Write-Host "[+] libdarksiders2_runtime.so construida"
-}
-
-# --- DXVK: empacotar se existir ------------------------------------------
-# O runtime carrega libdxvk_d3d11.so por nome (dlopen), e no Android isso
-# resolve a partir do diretorio de bibliotecas nativas do APK.
-$jni = Join-Path $project 'app\src\main\jniLibs\arm64-v8a'
-$dxvkSo = Join-Path $root 'third_party\dxvk\libdxvk_d3d11.so'
-$dxvkTarget = Join-Path $jni 'libdxvk_d3d11.so'
-New-Item -ItemType Directory -Force -Path $jni | Out-Null
-if (Test-Path $dxvkSo) {
-    Copy-Item $dxvkSo $dxvkTarget -Force
-    Write-Host "[+] DXVK empacotado: $([math]::Round((Get-Item $dxvkSo).Length/1MB,2)) MB"
-} else {
-    if (Test-Path $dxvkTarget) { Remove-Item $dxvkTarget -Force }
-    Write-Host "[i] DXVK ausente (third_party/dxvk/libdxvk_d3d11.so): o APK sai sem ele." -ForegroundColor Yellow
 }
 
 # --- 2. APK ---------------------------------------------------------------

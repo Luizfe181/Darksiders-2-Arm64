@@ -24,7 +24,7 @@ import java.util.zip.ZipInputStream;
  */
 final class Archive {
 
-    enum Kind { VULKAN, DXVK }
+    enum Kind { VULKAN }
 
     private static final long MAX_TOTAL = 1L << 30;   // 1 GiB, guard against bombs
     private static final int MAX_ENTRIES = 20000;
@@ -241,41 +241,15 @@ final class Archive {
      * Finds the library a package is meant to provide.
      *
      * Turnip packages name it libvulkan_freedreno.so (sometimes under drivers/).
-     * The official DXVK release is a different shape: dxvk-<ver>/x64/d3d11.dll
-     * and dxvk-<ver>/x32/*.dll, all PE images. The 64-bit d3d11.dll is returned
-     * in that case so the caller can explain what was found -- picking x32 by
-     * accident would be worse than useless.
      */
     static File findLibrary(File root, Kind kind) {
-        if (kind == Kind.VULKAN) {
-            File named = findByPredicate(root, f -> {
-                String n = f.getName().toLowerCase(Locale.ROOT);
-                return n.endsWith(".so") && (n.contains("vulkan") || n.contains("freedreno"));
-            });
-            if (named != null) return named;
-            return findByPredicate(
-                    root, f -> f.getName().toLowerCase(Locale.ROOT).endsWith(".so"));
-        }
-
-        // DXVK: prefer the 64-bit build of d3d11.dll inside x64/.
-        File x64 = findByPredicate(root, f -> {
-            String path = f.getAbsolutePath().replace('\\', '/').toLowerCase(Locale.ROOT);
-            return path.contains("/x64/") && f.getName().equalsIgnoreCase("d3d11.dll");
-        });
-        if (x64 != null) return x64;
-
-        // A native (ELF) DXVK build, if one is ever provided.
-        File nativeDxvk = findByPredicate(root, f -> {
+        File named = findByPredicate(root, f -> {
             String n = f.getName().toLowerCase(Locale.ROOT);
-            return n.endsWith(".so") && n.contains("dxvk");
+            return n.endsWith(".so") && (n.contains("vulkan") || n.contains("freedreno"));
         });
-        if (nativeDxvk != null) return nativeDxvk;
-
-        File anySo = findByPredicate(
+        if (named != null) return named;
+        return findByPredicate(
                 root, f -> f.getName().toLowerCase(Locale.ROOT).endsWith(".so"));
-        if (anySo != null) return anySo;
-
-        return findByPredicate(root, f -> f.getName().equalsIgnoreCase("d3d11.dll"));
     }
 
     private interface Predicate {

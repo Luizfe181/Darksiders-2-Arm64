@@ -103,47 +103,6 @@
             android:layout_height="wrap_content"
             android:text="@string/setup_clear_driver" />
 
-        <!-- DXVK -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="28dp"
-            android:text="@string/setup_dxvk"
-            android:textColor="#E6E6E6"
-            android:textSize="16sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/dxvkText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:text="@string/setup_dxvk_none"
-            android:textColor="#8AB4F8"
-            android:textIsSelectable="true"
-            android:textSize="14sp" />
-
-        <TextView
-            android:id="@+id/dxvkStatus"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
-            android:textColor="#9AA0A6"
-            android:textSize="13sp" />
-
-        <Button
-            android:id="@+id/pickDxvk"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:text="@string/setup_pick_dxvk" />
-
-        <Button
-            android:id="@+id/clearDxvk"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/setup_clear_dxvk" />
-
         <!-- Estado geral -->
         <TextView
             android:id="@+id/overall"

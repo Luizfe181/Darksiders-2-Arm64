@@ -4,7 +4,6 @@
 #include <cctype>
 #include <cstdio>
 #include <cstdlib>
-#include <cstring>
 #include <string>
 #include <vector>
 
@@ -138,15 +137,6 @@ std::string ConfiguredDataRoot() {
         if (!value.empty()) return StripTrailingSlashes(value);
     }
     return std::string();
-}
-
-// VkSurfaceKHR is a pointer on some header configurations and a uint64_t on
-// others, so convert through memory instead of assuming either.
-std::uint64_t HandleToInteger(VkSurfaceKHR handle) {
-    static_assert(sizeof(std::uint64_t) >= sizeof(handle), "handle does not fit");
-    std::uint64_t value = 0;
-    std::memcpy(&value, &handle, sizeof(handle));
-    return value;
 }
 
 }  // namespace
@@ -336,8 +326,6 @@ bool HostRuntime::CreateVulkanContext() {
     context.height = static_cast<std::uint32_t>(height);
     render::SetContext(context);
 
-    // Publish it to the Win32 layer too: the D3D11/DXGI shims hand it to DXVK.
-    win32::SetRenderingSurface(HandleToInteger(m_surface));
     LOGI("Vulkan: surface conectada ao runtime (%dx%d)", width, height);
     return true;
 }
@@ -380,18 +368,6 @@ bool HostRuntime::Initialize(int argc, char* argv[]) {
         m_window = nullptr;
         SDL_Quit();
         return false;
-    }
-
-    // DXVK e opcional. A tela de configuracao pode apontar um .so instalado
-    // pelo utilizador (dxvk_library); sem isso o loader procura um empacotado
-    // no APK. Sem nenhum, os entry points D3D11 falham de forma limpa.
-    const std::string dxvk_path = ConfiguredValue("dxvk_library");
-    if (!win32::LoadDxvk(dxvk_path.empty() ? nullptr : dxvk_path.c_str())) {
-        if (dxvk_path.empty()) {
-            LOGE("DXVK nao encontrado (nem dxvk_library, nem empacotado); D3D11 indisponivel.");
-        } else {
-            LOGE("DXVK nao carregou de %s; D3D11/DXGI indisponiveis.", dxvk_path.c_str());
-        }
     }
 
     // Codigo do jogo: mapeia o executavel do jogador, liga a IAT aos stubs e
@@ -454,7 +430,6 @@ void HostRuntime::Shutdown() {
 
     // Vulkan objects first: the surface is tied to the window.
     render::SetContext(render::Context{});
-    win32::SetRenderingSurface(0);
     if (m_surface != VK_NULL_HANDLE && m_instance != VK_NULL_HANDLE) {
         vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
     }

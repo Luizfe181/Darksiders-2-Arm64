@@ -611,69 +611,6 @@ int main() {
     Call(K32, "DeleteFileA");
     CHECK(Ret() == 0, "DeleteFileA on a missing file returns 0");
 
-    std::printf("\n== D3D11 / DXGI COM tracing ==\n");
-    {
-        const std::uint64_t device_thunk = win32::ResolveImport("d3d11.dll", "D3D11CreateDevice");
-        CHECK(device_thunk != 0 && win32::IsThunk(device_thunk),
-              "D3D11CreateDevice resolves to a thunk");
-        CHECK(win32::ResolveImport("d3d11.dll", "D3D11CreateDeviceAndSwapChain") != 0,
-              "D3D11CreateDeviceAndSwapChain resolves to a thunk");
-        CHECK(win32::ResolveImport("dxgi.dll", "CreateDXGIFactory") != 0,
-              "CreateDXGIFactory resolves to a thunk");
-
-        // D3D11CreateDevice(adapter, type, sw, flags, levels, n, sdk,
-        //                   ppDevice, pFeatureLevel, ppContext)
-        std::uint64_t device = 0;
-        std::uint64_t context = 0;
-        std::int32_t feature_level = 0;
-        Reset(0, 1, 0, 0);
-        SetStackArg(0, 0);
-        SetStackArg(1, 0);
-        SetStackArg(2, 7);
-        SetStackArg(3, reinterpret_cast<std::uint64_t>(&device));
-        SetStackArg(4, reinterpret_cast<std::uint64_t>(&feature_level));
-        SetStackArg(5, reinterpret_cast<std::uint64_t>(&context));
-        CHECK(Call("d3d11.dll", "D3D11CreateDevice"), "D3D11CreateDevice dispatched");
-        CHECK(static_cast<std::int32_t>(Ret()) == 0, "D3D11CreateDevice returns S_OK (mock)");
-        CHECK(device != 0 && context != 0, "a mock device and context were returned");
-        CHECK(feature_level == 0xB000, "feature level 11_0 reported to the engine");
-
-        // The guest reads [this] for the vtable, then vtable[n] for the method.
-        const auto *vtable =
-            reinterpret_cast<const std::uint64_t *>(*reinterpret_cast<const std::uint64_t *>(device));
-        CHECK(vtable != nullptr, "the mock object exposes a vtable");
-        CHECK(win32::IsThunk(vtable[2]), "vtable slots are guest-callable thunks");
-        CHECK(win32::IsThunk(vtable[5]), "the CreateTexture2D slot is a thunk");
-
-        // Call Release through the vtable exactly as the guest would.
-        Reset(device);
-        CHECK(win32::Dispatch(&g_ctx, vtable[2]), "Release dispatched through the vtable");
-        CHECK(static_cast<std::int32_t>(Ret()) == 0, "Release drops the mock refcount to 0");
-
-        // CreateDXGIFactory(riid, ppFactory)
-        std::uint64_t factory = 0;
-        Reset(0, reinterpret_cast<std::uint64_t>(&factory));
-        CHECK(Call("dxgi.dll", "CreateDXGIFactory"), "CreateDXGIFactory dispatched");
-        CHECK(static_cast<std::int32_t>(Ret()) == 0 && factory != 0,
-              "a mock IDXGIFactory was returned");
-
-        // IDXGIFactory::CreateSwapChain(device, desc, ppSwapChain)
-        const auto *factory_vtable = reinterpret_cast<const std::uint64_t *>(
-            *reinterpret_cast<const std::uint64_t *>(factory));
-        std::uint64_t swapchain = 0;
-        Reset(factory, 0, 0, reinterpret_cast<std::uint64_t>(&swapchain));
-        CHECK(win32::Dispatch(&g_ctx, factory_vtable[10]),
-              "CreateSwapChain dispatched through the factory vtable");
-        CHECK(static_cast<std::int32_t>(Ret()) == 0 && swapchain != 0,
-              "a mock swap chain was created");
-
-        win32::SetRenderingSurface(0x1234ABCDull);
-        CHECK(win32::RenderingSurface() == 0x1234ABCDull,
-              "the Vulkan surface reaches the Win32 layer");
-        win32::SetRenderingSurface(0);
-        CHECK(win32::RenderingSurface() == 0, "the surface handoff clears on shutdown");
-    }
-
     ::unlink(kRel);
     ::unlink("d2_test_sub/d2_write.bin");
     ::unlink("d2_test_sub/d2_map.bin");

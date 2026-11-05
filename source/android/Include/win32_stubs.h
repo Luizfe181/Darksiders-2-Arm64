@@ -1,6 +1,6 @@
 // win32_stubs.h -- Win32 API shims for the Darksiders II static recompiler.
 //
-// The guest is a Windows x86-64 PE. Its imports (kernel32, user32, d3d11, ...)
+// The guest is a Windows x86-64 PE. Its imports (kernel32, user32, ...)
 // do not exist on Android, so each one is bound to a host function here and the
 // call is intercepted by the recompiler runtime.
 //
@@ -120,29 +120,8 @@ std::string GetDataRoot();
 // containers (media.upak) by the same rules the guest's CreateFile uses.
 std::string ResolveGuestPath(const char *win_path);
 
-// ---------------------------------------------------------------------------
-// D3D11 / DXGI -- optional DXVK 1.10.3 compatibility path
-//
-// DXVK implements these entry points. It is loaded at run time from
-// libdxvk_d3d11.so when present (override with D2_DXVK); until then the shims
-// fail the way a machine without a GPU does instead of crashing, and the log
-// says what is missing. This is not the game's primary renderer: the game
-// creates a D3D9 device, which needs a separate D3D9-to-Vulkan COM bridge.
-//
-// DXVK's swapchain expects an HWND on Windows. Android has none: the swapchain
-// has to be built on the VkSurfaceKHR that the platform layer created, which is
-// what SetRenderingSurface() publishes. A DXVK build for this port reads it
-// through RenderingSurface().
-// ---------------------------------------------------------------------------
-bool LoadDxvk(const char *library_path = nullptr);
-bool IsDxvkLoaded();
-
-void SetRenderingSurface(std::uint64_t vk_surface);
-std::uint64_t RenderingSurface();
+// The SDL window is passed to the D3D9 Native backend as the guest HWND.
 void SetRenderingWindow(std::uint64_t sdl_window);
-
-// HRESULT E_FAIL, the value Windows returns when no device can be made.
-inline constexpr std::int32_t kD3dErrFail = static_cast<std::int32_t>(0x80004005u);
 
 // True when `addr` is in the thunk range.
 bool IsThunk(std::uint64_t addr) noexcept;
@@ -161,7 +140,7 @@ std::uint64_t ResolveImport(const char *module, const char *name);
 std::uint64_t ResolveImportOrdinal(const char *module, std::uint16_t ordinal);
 
 // True when `module` is a module this layer knows (real Windows DLL or a
-// virtual one such as d3d11.dll that we answer for).
+// virtual one such as kernel32.dll that we answer for).
 bool HasModule(const char *module);
 
 // Module handle the guest sees for `module` (a stable synthetic base address).

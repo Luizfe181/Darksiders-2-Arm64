@@ -16,11 +16,6 @@
 
     <string name="setup_start">Iniciar jogo</string>
 
-    <string name="setup_dxvk">DXVK (opcional)</string>
-    <string name="setup_dxvk_none">nao instalado — D3D11 nao sera atendido</string>
-    <string name="setup_pick_dxvk">Adicionar DXVK (.zip, .tar.gz ou .so)</string>
-    <string name="setup_clear_dxvk">Remover DXVK</string>
-
     <string name="picker_up">Subir</string>
     <string name="picker_choose">Selecionar esta pasta</string>
 </resources>

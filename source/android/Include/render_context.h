@@ -2,9 +2,7 @@
 // for anything that needs to draw into the game's window.
 //
 // main.cpp owns the lifetime: it creates the VkInstance and the VkSurfaceKHR
-// from the SDL window and calls SetContext(). The D3D11/DXGI shims read the
-// surface from here, because DXVK needs a VkSurfaceKHR to build its swapchain
-// on Android -- there is no HWND to hand it.
+// from the SDL window and calls SetContext().
 #pragma once
 
 #include <cstdint>

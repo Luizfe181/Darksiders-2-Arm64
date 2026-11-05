@@ -156,9 +156,36 @@ static void SyntheticPdataLessHelper(CpuContext* c) {
         g_list[2][1] = 0;
         c->r[RCX] = reinterpret_cast<std::uint64_t>(&g_list[0][0]);
     } else if (g_helper_offset == 0xE67C60 ||
-               g_helper_offset == 0xE681E0) {
+               g_helper_offset == 0xE69270 ||
+               g_helper_offset == 0xE71BD0 ||
+               g_helper_offset == 0xE681E0 ||
+               g_helper_offset == 0xE68AF0 ||
+               g_helper_offset == 0x87790 ||
+               g_helper_offset == 0x87A60 ||
+               g_helper_offset == 0x883A0 ||
+               g_helper_offset == 0x89770) {
         std::memset(g_record, 0xA5, sizeof(g_record));
         c->r[RCX] = reinterpret_cast<std::uint64_t>(g_record);
+    }
+    if (g_helper_offset == 0xE68AF0) {
+        c->r[RDX] = 0x11223344u;
+        c->r[R8] = 0x55667788u;
+        c->r[R9] = 0x99AABBCCu;
+        GuestStore<std::uint32_t>(c->r[RSP] + 0x20, 0xDDEEFF00u);
+    }
+    if (g_helper_offset == 0x87790) {
+        GuestStore<std::uint64_t>(g_image_base + 0x1BFCB90,
+                                  0xD2A55A1234567890ull);
+    } else if (g_helper_offset == 0x87A60) {
+        GuestStore<std::uint64_t>(g_image_base + 0x1BFCE90,
+                                  0x1234ABCDEF987650ull);
+    } else if (g_helper_offset == 0x883A0) {
+        GuestStore<std::uint64_t>(g_image_base + 0x1BFD7F8,
+                                  0x1122334455667788ull);
+        GuestStore<std::uint64_t>(g_image_base + 0x1BFD7F0,
+                                  0x8877665544332211ull);
+    } else if (g_helper_offset == 0x89770) {
+        GuestStore<std::uint32_t>(g_image_base + 0x13293F0, 1);
     }
     rc->call(c, g_image_base + g_helper_offset, c->rip + 0x100);
     g_helper_result = c->r[RAX];
@@ -353,12 +380,91 @@ int main(int argc, char** argv) {
     CHECK(initialized_pointer == image.base() + 0x1302AD0ull,
           "initializer em E67C60 gravou o global correto");
 
+    g_helper_offset = 0xE69270;
+    RunStats second_global_pointer_stats;
+    CHECK(RunGuest(image.base() + 0x8000, image.base(), &second_global_pointer_stats),
+          "dispatcher executou o initializer de E69270");
+    const std::uint64_t second_initialized_pointer = GuestLoad<std::uint64_t>(
+        reinterpret_cast<std::uint64_t>(g_record));
+    CHECK(g_helper_result == reinterpret_cast<std::uint64_t>(g_record),
+          "initializer em E69270 devolveu o registro");
+    CHECK(second_initialized_pointer == image.base() + 0x1302AF8ull,
+          "initializer em E69270 gravou o global correto");
+
+    g_helper_offset = 0xE71BD0;
+    RunStats third_global_pointer_stats;
+    CHECK(RunGuest(image.base() + 0x8000, image.base(), &third_global_pointer_stats),
+          "dispatcher executou o mesmo initializer em E71BD0");
+    const std::uint64_t third_initialized_pointer = GuestLoad<std::uint64_t>(
+        reinterpret_cast<std::uint64_t>(g_record));
+    CHECK(g_helper_result == reinterpret_cast<std::uint64_t>(g_record),
+          "initializer em E71BD0 devolveu o registro");
+    CHECK(third_initialized_pointer == image.base() + 0x1303810ull,
+          "initializer em E71BD0 gravou o global correto");
+
+    g_helper_offset = 0xE68AF0;
+    RunStats record4_stats;
+    CHECK(RunGuest(image.base() + 0x8000, image.base(), &record4_stats),
+          "dispatcher executou o constructor de quatro campos em E68AF0");
+    CHECK(g_helper_result == reinterpret_cast<std::uint64_t>(g_record),
+          "constructor em E68AF0 devolveu o registro");
+    CHECK(GuestLoad<std::uint32_t>(reinterpret_cast<std::uint64_t>(g_record)) ==
+              0x11223344u &&
+              GuestLoad<std::uint32_t>(reinterpret_cast<std::uint64_t>(g_record) + 4) ==
+                  0x55667788u &&
+              GuestLoad<std::uint32_t>(reinterpret_cast<std::uint64_t>(g_record) + 8) ==
+                  0x99AABBCCu &&
+              GuestLoad<std::uint32_t>(reinterpret_cast<std::uint64_t>(g_record) + 12) ==
+                  0xDDEEFF00u,
+          "constructor em E68AF0 copiou os quatro argumentos");
+
     g_helper_offset = 0xE681E0;
     RunStats pointer_identity_stats;
     CHECK(RunGuest(image.base() + 0x8000, image.base(), &pointer_identity_stats),
           "dispatcher executou o getter identity sem .pdata");
     CHECK(g_helper_result == reinterpret_cast<std::uint64_t>(g_record),
           "getter em E681E0 devolveu RCX");
+
+    g_helper_offset = 0x87790;
+    RunStats global_copy_stats;
+    CHECK(RunGuest(image.base() + 0x8000, image.base(), &global_copy_stats),
+          "dispatcher executou o global copy helper em 0x87790");
+    CHECK(g_helper_result == 0xD2A55A1234567890ull,
+          "helper em 0x87790 devolveu o valor global");
+    CHECK(GuestLoad<std::uint64_t>(image.base() + 0x1BFCC58) ==
+              0xD2A55A1234567890ull,
+          "helper em 0x87790 copiou o valor para o global destino");
+
+    g_helper_offset = 0x87A60;
+    RunStats second_global_copy_stats;
+    CHECK(RunGuest(image.base() + 0x8000, image.base(), &second_global_copy_stats),
+          "dispatcher executou o mesmo padrao global copy em 0x87A60");
+    CHECK(g_helper_result == 0x1234ABCDEF987650ull,
+          "helper em 0x87A60 devolveu o valor global");
+    CHECK(GuestLoad<std::uint64_t>(image.base() + 0x1BFCEd0) ==
+              0x1234ABCDEF987650ull,
+          "helper em 0x87A60 copiou o valor para o global destino");
+
+    g_helper_offset = 0x883A0;
+    RunStats global_sequence_stats;
+    CHECK(RunGuest(image.base() + 0x8000, image.base(), &global_sequence_stats),
+          "dispatcher executou a sequencia global copy em 0x883A0");
+    CHECK(GuestLoad<std::uint64_t>(image.base() + 0x1BFD898) ==
+              0x1122334455667788ull &&
+              GuestLoad<std::uint64_t>(image.base() + 0x1BFD8C0) ==
+                  0x1122334455667788ull,
+          "sequencia em 0x883A0 copiou o primeiro global para dois destinos");
+    CHECK(g_helper_result == 0x8877665544332211ull &&
+              GuestLoad<std::uint64_t>(image.base() + 0x1BFD910) ==
+                  0x8877665544332211ull,
+          "sequencia em 0x883A0 copiou e devolveu o segundo global");
+
+    g_helper_offset = 0x89770;
+    RunStats compare_set_stats;
+    CHECK(RunGuest(image.base() + 0x8000, image.base(), &compare_set_stats),
+          "dispatcher executou o compare-set helper em 0x89770");
+    CHECK(GuestLoad<std::uint8_t>(image.base() + 0x1BFE751) == 1,
+          "helper em 0x89770 gravou verdadeiro quando o global vale um");
 
     RegisterFunction(0x6000, SyntheticOneArgumentThunk);
     RunStats init_thunk_stats;

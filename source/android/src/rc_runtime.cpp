@@ -1,6 +1,7 @@
 // rc_runtime.cpp -- implementation of the RcApi used by the recompiled code.
 #include "rc_runtime.h"
 
+#include <algorithm>
 #include <csetjmp>
 #include <cstdio>
 #include <cstring>
@@ -237,6 +238,135 @@ void Dispatch(CpuContext* c, std::uint64_t target) {
         }
     }
 
+    if (target >= g_image_base && target - g_image_base < g_image_size) {
+        const auto* code = reinterpret_cast<const std::uint8_t*>(target);
+        struct GlobalOperation {
+            std::uint64_t address;
+            bool load;
+        };
+        constexpr std::size_t kMaxOperations = 32;
+        constexpr std::size_t kMaxSequenceSize = 0x100;
+        GlobalOperation operations[kMaxOperations]{};
+        const std::size_t available = static_cast<std::size_t>(
+            std::min<std::uint64_t>(g_image_size - (target - g_image_base),
+                                    kMaxSequenceSize));
+        std::size_t operation_count = 0;
+        std::size_t cursor = 0;
+        bool matches = false;
+
+        while (cursor < available) {
+            if (code[cursor] == 0xC3) {
+                matches = operation_count != 0;
+                break;
+            }
+            if (available - cursor < 7 ||
+                operation_count == kMaxOperations ||
+                code[cursor] != 0x48 ||
+                (code[cursor + 1] != 0x8B && code[cursor + 1] != 0x89) ||
+                code[cursor + 2] != 0x05) {
+                break;
+            }
+
+            std::int32_t source_displacement = 0;
+            std::memcpy(&source_displacement, code + cursor + 3,
+                        sizeof(source_displacement));
+            const std::int64_t address =
+                static_cast<std::int64_t>(target + cursor + 7) +
+                source_displacement;
+            if (address < static_cast<std::int64_t>(g_image_base) ||
+                static_cast<std::uint64_t>(address) - g_image_base >
+                    g_image_size - sizeof(std::uint64_t)) {
+                break;
+            }
+            operations[operation_count++] = {
+                static_cast<std::uint64_t>(address), code[cursor + 1] == 0x8B};
+            cursor += 7;
+        }
+
+        if (matches) {
+            for (std::size_t i = 0; i < operation_count; ++i) {
+                if (operations[i].load) {
+                    c->r[RAX] = GuestLoad<std::uint64_t>(operations[i].address);
+                } else {
+                    GuestStore<std::uint64_t>(operations[i].address, c->r[RAX]);
+                }
+            }
+            c->rip = GuestLoad<std::uint64_t>(c->r[RSP]);
+            c->r[RSP] += sizeof(std::uint64_t);
+            return;
+        }
+    }
+
+    constexpr std::size_t kPointerInitializerSize = 14;
+    if (target >= g_image_base && g_image_size >= kPointerInitializerSize &&
+        target - g_image_base <= g_image_size - kPointerInitializerSize) {
+        const auto* code = reinterpret_cast<const std::uint8_t*>(target);
+        constexpr std::uint8_t kPattern[] = {
+            0x48, 0x8D, 0x05, 0, 0, 0, 0, 0x48, 0x89, 0x01,
+            0x48, 0x8B, 0xC1, 0xC3};
+        bool matches = true;
+        for (std::size_t i = 0; i < sizeof(kPattern); ++i) {
+            if (i >= 3 && i <= 6) continue;
+            if (code[i] != kPattern[i]) {
+                matches = false;
+                break;
+            }
+        }
+
+        constexpr std::size_t kCompareSetSize = 15;
+        if (target >= g_image_base && g_image_size >= kCompareSetSize &&
+            target - g_image_base <= g_image_size - kCompareSetSize) {
+            const auto* code = reinterpret_cast<const std::uint8_t*>(target);
+            if (code[0] == 0x83 && code[1] == 0x3D &&
+                (code[7] == 0x0F && (code[8] == 0x94 || code[8] == 0x95)) &&
+                code[9] == 0x05 && code[14] == 0xC3) {
+                std::int32_t source_displacement = 0;
+                std::int32_t destination_displacement = 0;
+                std::memcpy(&source_displacement, code + 2,
+                            sizeof(source_displacement));
+                std::memcpy(&destination_displacement, code + 10,
+                            sizeof(destination_displacement));
+                const std::int64_t source =
+                    static_cast<std::int64_t>(target + 7) + source_displacement;
+                const std::int64_t destination =
+                    static_cast<std::int64_t>(target + 14) + destination_displacement;
+                const std::int32_t immediate = static_cast<std::int8_t>(code[6]);
+                if (source >= static_cast<std::int64_t>(g_image_base) &&
+                    static_cast<std::uint64_t>(source) - g_image_base <=
+                        g_image_size - sizeof(std::uint32_t) &&
+                    destination >= static_cast<std::int64_t>(g_image_base) &&
+                    static_cast<std::uint64_t>(destination) - g_image_base <
+                        g_image_size) {
+                    const bool equal = GuestLoad<std::uint32_t>(source) ==
+                                       static_cast<std::uint32_t>(immediate);
+                    const bool result = code[8] == 0x94 ? equal : !equal;
+                    GuestStore<std::uint8_t>(destination,
+                                             static_cast<std::uint8_t>(result));
+                    c->r[RAX] = result;
+                    c->rip = GuestLoad<std::uint64_t>(c->r[RSP]);
+                    c->r[RSP] += sizeof(std::uint64_t);
+                    return;
+                }
+            }
+        }
+        if (matches) {
+            std::int32_t displacement = 0;
+            std::memcpy(&displacement, code + 3, sizeof(displacement));
+            const std::int64_t address =
+                static_cast<std::int64_t>(target + 7) + displacement;
+            if (address >= static_cast<std::int64_t>(g_image_base) &&
+                static_cast<std::uint64_t>(address) - g_image_base <
+                    g_image_size) {
+                GuestStore<std::uint64_t>(c->r[RCX],
+                                          static_cast<std::uint64_t>(address));
+                c->r[RAX] = c->r[RCX];
+                c->rip = GuestLoad<std::uint64_t>(c->r[RSP]);
+                c->r[RSP] += sizeof(std::uint64_t);
+                return;
+            }
+        }
+    }
+
     // The executable has compiler-generated static-initializer thunks outside
     // .pdata. This exact pattern normalizes eight byte flags to DWORDs, loads
     // the initializer argument into RCX, and tail-jumps to a regular function.
@@ -397,9 +527,15 @@ bool DispatchPdataLessHelper(CpuContext* c, std::uint64_t offset) {
             ReturnFromGuestFunction(c);
             return true;
         }
-        case 0xE67C60: {
+        case 0xE68AF0: {
             const std::uint64_t record = c->r[RCX];
-            GuestStore<std::uint64_t>(record, g_image_base + 0x1302AD0);
+            GuestStore<std::uint32_t>(record, static_cast<std::uint32_t>(c->r[RDX]));
+            GuestStore<std::uint32_t>(record + 0x04,
+                                      static_cast<std::uint32_t>(c->r[R8]));
+            GuestStore<std::uint32_t>(record + 0x08,
+                                      static_cast<std::uint32_t>(c->r[R9]));
+            GuestStore<std::uint32_t>(record + 0x0C,
+                                      GuestLoad<std::uint32_t>(c->r[RSP] + 0x28));
             c->r[RAX] = record;
             ReturnFromGuestFunction(c);
             return true;
