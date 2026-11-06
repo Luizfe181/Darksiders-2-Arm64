@@ -641,6 +641,8 @@ std::string EffectiveRoot() {
         if (env[0] != '\0') return NormalizeWinPath(env);
     }
     static const char *const kCandidates[] = {
+        "/sdcard/files",
+        "/storage/emulated/0/files",
         "/data/data/com.vigil.darksiders2/files",
         "/sdcard/Android/data/com.vigil.darksiders2/files",
         ".",
@@ -2544,6 +2546,35 @@ std::uint64_t ModuleBase(const char *module) {
     return ModuleBaseLocked(Lower(module ? module : ""), true);
 }
 
+// ---------------------------------------------------------------------------
+// Guest instructions the translator could not emit
+// ---------------------------------------------------------------------------
+// Darksiders2.exe offset 0x2ACD is `cvtsd2ss xmm0, xmm0`, in the middle of the
+// function that starts at 0x2AB4:
+//
+//      ...                 mulsd  xmm0, [0x1416B45E0]
+//      0x2ACD              cvtsd2ss xmm0, xmm0        <- rc->interp(c)
+//      0x2AD1              movss  [0x141F0CC10], xmm0
+//      ...                 add rsp, 0x28 / ret
+//
+// The generated function calls rc->interp() and then resumes at 0x2AD1, so the
+// instruction form only converts (and leaves the other xmm lanes untouched, as
+// legacy CVTSD2SS does). 0x2ACD is not a real function entry -- it is the
+// middle of 0x2AB4 -- but the recompiler also emits an f_2acd entry, so the
+// function form keeps the guest ABI if the dispatcher ever enters it directly:
+// it converts, pops the return address and advances RSP.
+void Stub_FloatConverterInstruction(CpuContext *c) {
+    const double value = c->v[0].fd[0];
+    c->v[0].f[0] = static_cast<float>(value);
+}
+
+void Stub_FloatConverter(CpuContext *c) {
+    const double value = c->v[0].fd[0];
+    c->v[0].f[0] = static_cast<float>(value);
+    c->rip = recomp::GuestLoad<std::uint64_t>(c->r[recomp::RSP]);
+    c->r[recomp::RSP] += sizeof(std::uint64_t);
+}
+
 void RegisterBuiltins() {
     static std::once_flag once;
     std::call_once(once, [] {
@@ -2716,6 +2747,7 @@ void RegisterBuiltins() {
             {"msvcr120.dll", "_aligned_malloc", Stub_aligned_malloc},
             {"msvcr120.dll", "_aligned_free", Stub_aligned_free},
             {"msvcr120.dll", "memset", Stub_memset},
+            
 
             // steam_api64.dll
             {"steam_api64.dll", "SteamAPI_Init", Stub_SteamAPI_Init},

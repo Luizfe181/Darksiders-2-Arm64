@@ -40,6 +40,7 @@ namespace {
 const RcFunction* g_table = nullptr;
 std::size_t g_count = 0;
 std::unordered_map<std::uint64_t, RcFn> g_registered;
+std::unordered_map<std::uint64_t, RcFn> g_instruction_hooks;
 
 std::uint64_t g_image_base = 0;
 std::uint64_t g_image_size = 0;
@@ -554,8 +555,19 @@ void ApiBail(CpuContext* /*c*/, std::uint64_t /*entry_rsp*/) {
 }
 
 void ApiInterp(CpuContext* c) {
+    const std::uint64_t offset = c->rip - g_image_base;
+    // The translator leaves an instruction to the runtime when it has no native
+    // form (SSE scalar conversions, LOCK-prefixed RMW, ...). If a native handler
+    // was registered for it, run it here: the generated function continues at
+    // the following instruction when it returns. Only instructions with no
+    // handler count as "interpreted" (unhandled) in the stats.
+    auto it = g_instruction_hooks.find(offset);
+    if (it != g_instruction_hooks.end()) {
+        it->second(c);
+        return;
+    }
     ++g_stats.interpreted;
-    Stop("instruction needs the interpreter", c->rip - g_image_base);
+    Stop("instruction needs the interpreter", offset);
 }
 
 void ApiTrace(std::uint64_t /*off*/, std::uint64_t* /*r*/, CpuContext* /*c*/) {}
@@ -577,6 +589,12 @@ void InstallRcApi(std::uint64_t image_base, std::uint64_t image_size) {
     g_image_size = image_size;
     g_api.image_base = image_base;
     rc = &g_api;
+
+    // Guest code the translator had to leave to the runtime. 0x2ACD is
+    // `cvtsd2ss xmm0, xmm0` inside the function at 0x2AB4. RegisterFunction and
+    // RegisterInstructionHook are keyed by image offset, not by virtual address.
+    RegisterFunction(0x2ACD, win32::Stub_FloatConverter);
+    RegisterInstructionHook(0x2ACD, win32::Stub_FloatConverterInstruction);
 }
 
 void SetFunctionTable(const RcFunction* table, std::size_t count) {
@@ -585,6 +603,10 @@ void SetFunctionTable(const RcFunction* table, std::size_t count) {
 }
 
 void RegisterFunction(std::uint64_t offset, RcFn fn) { g_registered[offset] = fn; }
+
+void RegisterInstructionHook(std::uint64_t offset, RcFn fn) {
+    g_instruction_hooks[offset] = fn;
+}
 
 bool InitializeGameLibrary() {
     if (bb_recomp_init == nullptr) return false;

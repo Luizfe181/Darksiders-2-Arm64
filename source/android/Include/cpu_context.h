@@ -86,7 +86,7 @@ struct alignas(64) CpuContext {
     uint16_t fpu_tw;         // 0x2AA  x87 tag word
     uint8_t  fpu_depth;      // 0x2AC  x87 stack depth
     uint8_t  _pad0[3];       // 0x2AD
-    uint8_t  st[8][10];      // 0x2B0  x87 registers, 80-bit extended, raw
+    uint8_t  st[8][10];      // 0x2B0  x87 registers (first 8 bytes: double)
     uint64_t fs_base;        // 0x300  Win64 TLS base (TEB) -- x86-64 has no fs register
     uint64_t gs_base;        // 0x308
     void    *host_thread;    // 0x310  back-pointer for the runtime
@@ -107,6 +107,47 @@ inline void InitializeGuestTeb(CpuContext &context, uint64_t stack_base) noexcep
     context.gs_base = reinterpret_cast<uint64_t>(context.guest_teb);
     std::memcpy(context.guest_teb + 0x08, &stack_base, sizeof(stack_base));
     std::memcpy(context.guest_teb + 0x30, &context.gs_base, sizeof(context.gs_base));
+}
+
+// ---------------------------------------------------------------------------
+// x87 stack.  AArch64 has no 80-bit float, so the port keeps each register as
+// a double: enough for the float/double/integer forms the game uses.  st[0]
+// is st(0); push/pop shift the file so no TOP bookkeeping is needed.
+// ---------------------------------------------------------------------------
+inline double X87Get(const CpuContext &context, int index) noexcept {
+    double value;
+    std::memcpy(&value, context.st[index & 7], sizeof(value));
+    return value;
+}
+
+inline void X87Set(CpuContext &context, int index, double value) noexcept {
+    std::memcpy(context.st[index & 7], &value, sizeof(value));
+}
+
+inline void X87Push(CpuContext &context, double value) noexcept {
+    for (int i = 7; i > 0; --i) X87Set(context, i, X87Get(context, i - 1));
+    X87Set(context, 0, value);
+    if (context.fpu_depth < 8) ++context.fpu_depth;
+}
+
+inline double X87Pop(CpuContext &context) noexcept {
+    const double value = X87Get(context, 0);
+    for (int i = 0; i < 7; ++i) X87Set(context, i, X87Get(context, i + 1));
+    X87Set(context, 7, 0.0);
+    if (context.fpu_depth != 0) --context.fpu_depth;
+    return value;
+}
+
+inline void X87Compare(CpuContext &context, double left, double right) noexcept {
+    uint64_t flags = context.flags & ~static_cast<uint64_t>(F_CF | F_PF | F_ZF);
+    if (left != left || right != right) {          // unordered
+        flags |= F_CF | F_PF | F_ZF;
+    } else if (left < right) {
+        flags |= F_CF;
+    } else if (left == right) {
+        flags |= F_ZF;
+    }
+    context.flags = flags;
 }
 
 // ---------------------------------------------------------------------------

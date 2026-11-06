@@ -131,6 +131,17 @@ bool IsThunk(std::uint64_t addr) noexcept;
 void SetRecompApi(const RcApi *api) noexcept;
 const RcApi *GetRecompApi() noexcept;
 
+// ---------------------------------------------------------------------------
+// Guest instructions the translator could not emit.
+//
+// These are not Win32 API shims: they operate on the guest FPU/SSE state. The
+// instruction form is what `rc->interp` calls (the generated function resumes
+// at the next instruction); the function form is what the dispatcher calls
+// when guest code enters the address directly (it must emulate the `ret`).
+// ---------------------------------------------------------------------------
+void Stub_FloatConverter(CpuContext *c);
+void Stub_FloatConverterInstruction(CpuContext *c);
+
 // Binds every built-in shim to a thunk. Idempotent. Call once at startup.
 void RegisterBuiltins();
 

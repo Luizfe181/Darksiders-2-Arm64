@@ -70,6 +70,17 @@ static void SyntheticImportVeneer(CpuContext* c) {
     rc->call(c, g_import_veneer, c->rip + 0x100);
 }
 
+// 0x2ACD is `cvtsd2ss xmm0, xmm0`, an instruction the translator leaves to
+// rc->interp. The runtime must route it to the native hook and then let the
+// generated function resume at 0x2AD1.
+static float g_float_converted = 0.0f;
+static void SyntheticFloatConverterInterp(CpuContext* c) {
+    c->v[0].fd[0] = 2.5;
+    c->rip = g_image_base + 0x2ACDull;
+    rc->interp(c);
+    g_float_converted = c->v[0].f[0];
+}
+
 static void SyntheticCriticalSectionVeneer(CpuContext* c) {
     c->r[RCX] = 0x1234;
     c->r[RDX] = 0;
@@ -284,6 +295,15 @@ int main(int argc, char** argv) {
     CHECK(RunGuest(image.base() + 0x1000, image.base(), &stats), "RunGuest completou");
     CHECK(stats.calls == 1, "uma chamada registada");
     CHECK(stats.thunk_calls == 1, "a chamada atravessou o dispatcher de thunks");
+
+    RegisterFunction(0x9000, SyntheticFloatConverterInterp);
+    RunStats converter_stats;
+    CHECK(RunGuest(image.base() + 0x9000, image.base(), &converter_stats),
+          "RunGuest executou o hook nativo de cvtsd2ss em 0x2ACD");
+    CHECK(converter_stats.interpreted == 0 && converter_stats.unhandled == 0,
+          "o hook de 0x2ACD tratou a instrucao sem parar");
+    CHECK(g_float_converted == 2.5f,
+          "o hook de 0x2ACD converteu double (fd[0]) para float (f[0])");
 
     g_import_veneer = image.base() + 0xD7F3ACull;
     RegisterFunction(0x3000, SyntheticImportVeneer);

@@ -28,6 +28,12 @@ void InstallRcApi(std::uint64_t image_base, std::uint64_t image_size);
 void SetFunctionTable(const RcFunction* table, std::size_t count);
 void RegisterFunction(std::uint64_t offset, RcFn fn);
 
+// Registers a handler for one instruction the translator left to `rc->interp`,
+// by image offset. The generated function resumes at the next instruction when
+// the handler returns, so the handler emulates only that instruction (it must
+// not emulate a `ret`).
+void RegisterInstructionHook(std::uint64_t offset, RcFn fn);
+
 // Registers the table exported by the generated OUT.c, when the library was
 // built with the recompiled game. Returns false if there is none.
 bool InitializeGameLibrary();
